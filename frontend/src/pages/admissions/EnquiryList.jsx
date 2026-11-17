@@ -8,6 +8,7 @@ import {
   Calendar,
   Clock,
   AlertTriangle,
+  AlertCircle,
   CheckCircle2,
   ChevronRight,
   MessageSquare,
@@ -39,6 +40,15 @@ export const EnquiryList = () => {
   const [selectedStatusTab, setSelectedStatusTab] = useState('all');
   const [activeRibbonFilter, setActiveRibbonFilter] = useState('all'); // all, today, overdue, upcoming
   const [search, setSearch] = useState('');
+
+  // Workflow settings state
+  const [workflow, setWorkflow] = useState({
+    enable_enquiry: true,
+    enable_application: true,
+    allow_direct_enquiry_to_admission: true,
+    allow_direct_walkin_admission: true,
+  });
+  const [checkedBranchId, setCheckedBranchId] = useState('');
 
   // Data & State
   const [enquiries, setEnquiries] = useState([]);
@@ -77,6 +87,8 @@ export const EnquiryList = () => {
     upcoming: 0,
   });
 
+  const isWorkflowReady = Boolean(selectedBranchId) && checkedBranchId === selectedBranchId;
+
   // Load initial lookups
   useEffect(() => {
     const fetchLookups = async () => {
@@ -95,16 +107,74 @@ export const EnquiryList = () => {
         setClasses(cList);
         setLeadSources(sList);
 
-        if (bList.length > 0) setSelectedBranchId(String(bList[0].id));
+        if (bList.length > 0) {
+          setSelectedBranchId(String(bList[0].id));
+        } else {
+          setLoading(false);
+        }
       } catch (err) {
         console.error('Failed to load lookups:', err);
+        setLoading(false);
       }
     };
     fetchLookups();
   }, []);
 
-  // Fetch enquiries with filters
+  // 1. First check branch workflow when branch changes
+  useEffect(() => {
+    if (!selectedBranchId) return;
+    let isCancelled = false;
+
+    const checkWorkflow = async () => {
+      setLoading(true);
+      setMessage(null);
+      try {
+        const res = await api.get(`/admissions/settings/workflow/${selectedBranchId}`);
+        const data = res.workflow || res.data || res;
+
+        if (!isCancelled) {
+          if (data && typeof data.enable_enquiry !== 'undefined') {
+            setWorkflow({
+              enable_enquiry: Boolean(data.enable_enquiry),
+              enable_application: Boolean(data.enable_application),
+              allow_direct_enquiry_to_admission: Boolean(data.allow_direct_enquiry_to_admission),
+              allow_direct_walkin_admission: Boolean(data.allow_direct_walkin_admission),
+            });
+          } else {
+            setWorkflow({
+              enable_enquiry: true,
+              enable_application: true,
+              allow_direct_enquiry_to_admission: true,
+              allow_direct_walkin_admission: true,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check admission workflow:', err);
+      } finally {
+        if (!isCancelled) {
+          setCheckedBranchId(selectedBranchId);
+        }
+      }
+    };
+
+    checkWorkflow();
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedBranchId]);
+
+  // 2. Fetch enquiries only if workflow is checked and Enquiry stage is enabled
   const fetchEnquiries = useCallback(async () => {
+    if (!isWorkflowReady) return;
+
+    if (!workflow.enable_enquiry) {
+      setEnquiries([]);
+      setRibbonMetrics({ all: 0, today: 0, overdue: 0, upcoming: 0 });
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -150,6 +220,8 @@ export const EnquiryList = () => {
       setLoading(false);
     }
   }, [
+    isWorkflowReady,
+    workflow.enable_enquiry,
     selectedBranchId,
     selectedClassId,
     selectedLeadSourceId,
@@ -340,310 +412,357 @@ export const EnquiryList = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => navigate('/admissions/enquiries/new')}
-          className="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Enquiry</span>
-        </button>
+        {isWorkflowReady && workflow.enable_enquiry && (
+          <button
+            onClick={() => navigate('/admissions/enquiries/new')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Enquiry</span>
+          </button>
+        )}
       </div>
 
-      {message && (
-        <div
-          className={`flex items-center gap-3 p-4 rounded-xl border text-sm font-medium ${
-            message.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border-rose-200'
-          }`}
-        >
-          {message.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+      {/* Show error message if Enquiry stage is inactive for selected branch */}
+      {isWorkflowReady && !workflow.enable_enquiry ? (
+        <div className="space-y-4">
+          {branches.length > 1 && (
+            <div className="bg-white border border-border rounded-2xl p-4 flex items-center gap-3 shadow-card">
+              <Building2 className="w-4 h-4 text-brand-600" />
+              <span className="text-sm font-medium text-slate-700">Select Branch:</span>
+              <select
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+                className="px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
+              >
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
-          <span>{message.text}</span>
-        </div>
-      )}
 
-      {/* Top Metric Ribbons (Actionable KPI Cards) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Today's Follow-ups */}
-        <button
-          type="button"
-          onClick={() => setActiveRibbonFilter(activeRibbonFilter === 'today' ? 'all' : 'today')}
-          className={`text-left p-4 rounded-2xl border transition-all ${
-            activeRibbonFilter === 'today'
-              ? 'border-amber-500 bg-amber-50/50 shadow-md ring-2 ring-amber-100'
-              : 'border-border bg-white hover:border-amber-200'
-          }`}
-        >
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
-            <span>Today's Follow-ups</span>
-            <Clock className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="text-2xl font-bold text-amber-600">{ribbonMetrics.today}</div>
-          <p className="text-[11px] text-muted mt-1">Scheduled for follow-up today</p>
-        </button>
-
-        {/* Overdue Follow-ups */}
-        <button
-          type="button"
-          onClick={() => setActiveRibbonFilter(activeRibbonFilter === 'overdue' ? 'all' : 'overdue')}
-          className={`text-left p-4 rounded-2xl border transition-all ${
-            activeRibbonFilter === 'overdue'
-              ? 'border-rose-500 bg-rose-50/50 shadow-md ring-2 ring-rose-100'
-              : 'border-border bg-white hover:border-rose-200'
-          }`}
-        >
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
-            <span>Overdue Follow-ups</span>
-            <AlertTriangle className="w-4 h-4 text-rose-500" />
-          </div>
-          <div className="text-2xl font-bold text-rose-600">{ribbonMetrics.overdue}</div>
-          <p className="text-[11px] text-muted mt-1">Pending past target date</p>
-        </button>
-
-        {/* Upcoming Follow-ups */}
-        <button
-          type="button"
-          onClick={() => setActiveRibbonFilter(activeRibbonFilter === 'upcoming' ? 'all' : 'upcoming')}
-          className={`text-left p-4 rounded-2xl border transition-all ${
-            activeRibbonFilter === 'upcoming'
-              ? 'border-blue-500 bg-blue-50/50 shadow-md ring-2 ring-blue-100'
-              : 'border-border bg-white hover:border-blue-200'
-          }`}
-        >
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
-            <span>Upcoming Follow-ups</span>
-            <Calendar className="w-4 h-4 text-blue-500" />
-          </div>
-          <div className="text-2xl font-bold text-blue-600">{ribbonMetrics.upcoming}</div>
-          <p className="text-[11px] text-muted mt-1">Scheduled in future days</p>
-        </button>
-
-        {/* All Enquiries */}
-        <button
-          type="button"
-          onClick={() => setActiveRibbonFilter('all')}
-          className={`text-left p-4 rounded-2xl border transition-all ${
-            activeRibbonFilter === 'all'
-              ? 'border-brand-500 bg-brand-50/50 shadow-md ring-2 ring-brand-100'
-              : 'border-border bg-white hover:border-brand-200'
-          }`}
-        >
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
-            <span>Total Enquiries</span>
-            <UserPlus className="w-4 h-4 text-brand-500" />
-          </div>
-          <div className="text-2xl font-bold text-heading">{ribbonMetrics.all}</div>
-          <p className="text-[11px] text-muted mt-1">Active prospect pipeline</p>
-        </button>
-      </div>
-
-      {/* Filter Toolbar */}
-      <div className="bg-white border border-border rounded-2xl p-4 shadow-card space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[220px]">
-            <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by student, parent, phone, enquiry no..."
-              className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-border rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none"
-            />
-          </div>
-
-          {/* Branch filter */}
-          <div className="w-48">
-            <select
-              value={selectedBranchId}
-              onChange={(e) => setSelectedBranchId(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
-            >
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Class filter */}
-          <div className="w-40">
-            <select
-              value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
-            >
-              <option value="">All Classes</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Lead Source filter */}
-          <div className="w-44">
-            <select
-              value={selectedLeadSourceId}
-              onChange={(e) => setSelectedLeadSourceId(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
-            >
-              <option value="">All Sources</option>
-              {leadSources.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+          <div className="flex items-start gap-3 p-5 rounded-2xl border bg-rose-50 text-rose-800 border-rose-200">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-bold">Enquiry Stage is Inactive</p>
+              <p className="text-rose-700 mt-1">
+                Enquiry workflow is disabled for this branch. Please enable it in{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings/admission-workflow')}
+                  className="underline font-semibold hover:text-rose-900"
+                >
+                  Admission Workflow Settings
+                </button>{' '}
+                {branches.length > 1 ? 'or switch to another branch.' : 'to use this module.'}
+              </p>
+            </div>
           </div>
         </div>
-
-        {/* Status Tabs */}
-        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 overflow-x-auto text-xs font-medium">
-          {[
-            { key: 'all', label: 'All Enquiries' },
-            { key: 'open', label: 'Open' },
-            { key: 'interested', label: 'Interested' },
-            { key: 'callback_requested', label: 'Callback Requested' },
-            { key: 'converted', label: 'Converted' },
-            { key: 'dropped', label: 'Dropped' },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setSelectedStatusTab(tab.key)}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                selectedStatusTab === tab.key
-                  ? 'bg-brand-600 text-white shadow-xs'
-                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+      ) : (
+        <>
+          {message && (
+            <div
+              className={`flex items-center gap-3 p-4 rounded-xl border text-sm font-medium ${
+                message.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-rose-50 text-rose-800 border-rose-200'
               }`}
             >
-              {tab.label}
+              {message.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+              )}
+              <span>{message.text}</span>
+            </div>
+          )}
+
+          {/* Top Metric Ribbons (Actionable KPI Cards) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Today's Follow-ups */}
+            <button
+              type="button"
+              onClick={() => setActiveRibbonFilter(activeRibbonFilter === 'today' ? 'all' : 'today')}
+              className={`text-left p-4 rounded-2xl border transition-all ${
+                activeRibbonFilter === 'today'
+                  ? 'border-amber-500 bg-amber-50/50 shadow-md ring-2 ring-amber-100'
+                  : 'border-border bg-white hover:border-amber-200'
+              }`}
+            >
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
+                <span>Today's Follow-ups</span>
+                <Clock className="w-4 h-4 text-amber-500" />
+              </div>
+              <div className="text-2xl font-bold text-amber-600">{ribbonMetrics.today}</div>
+              <p className="text-[11px] text-muted mt-1">Scheduled for follow-up today</p>
             </button>
-          ))}
-        </div>
-      </div>
 
-      {/* Enquiries Table */}
-      <div className="bg-white border border-border rounded-2xl shadow-card overflow-hidden">
-        <table className="w-full text-left text-sm border-collapse">
-          <thead>
-            <tr className="bg-slate-50/75 border-b border-border text-xs uppercase font-semibold text-slate-500">
-              <th className="py-3.5 px-5">Enquiry No & Date</th>
-              <th className="py-3.5 px-5">Student / Class</th>
-              <th className="py-3.5 px-5">Parent & Contact</th>
-              <th className="py-3.5 px-5">Lead Source</th>
-              <th className="py-3.5 px-5">Next Follow-up</th>
-              <th className="py-3.5 px-5 text-center">Status</th>
-              <th className="py-3.5 px-5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {loading ? (
-              <tr>
-                <td colSpan="7" className="py-12 text-center text-muted">
-                  Loading enquiry records...
-                </td>
-              </tr>
-            ) : enquiries.length === 0 ? (
-              <tr>
-                <td colSpan="7" className="py-12 text-center text-muted">
-                  No enquiries match current filters.
-                </td>
-              </tr>
-            ) : (
-              enquiries.map((enq) => (
-                <tr key={enq.id} className="hover:bg-slate-50/50 transition-colors">
-                  {/* Enquiry No */}
-                  <td className="py-4 px-5">
-                    <div className="font-mono font-bold text-heading">{enq.enquiry_no}</div>
-                    <div className="text-[11px] text-muted">
-                      {new Date(enq.created_at || Date.now()).toLocaleDateString('en-GB')}
-                    </div>
-                  </td>
+            {/* Overdue Follow-ups */}
+            <button
+              type="button"
+              onClick={() => setActiveRibbonFilter(activeRibbonFilter === 'overdue' ? 'all' : 'overdue')}
+              className={`text-left p-4 rounded-2xl border transition-all ${
+                activeRibbonFilter === 'overdue'
+                  ? 'border-rose-500 bg-rose-50/50 shadow-md ring-2 ring-rose-100'
+                  : 'border-border bg-white hover:border-rose-200'
+              }`}
+            >
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
+                <span>Overdue Follow-ups</span>
+                <AlertTriangle className="w-4 h-4 text-rose-500" />
+              </div>
+              <div className="text-2xl font-bold text-rose-600">{ribbonMetrics.overdue}</div>
+              <p className="text-[11px] text-muted mt-1">Pending past target date</p>
+            </button>
 
-                  {/* Student & Class */}
-                  <td className="py-4 px-5">
-                    <div className="font-semibold text-heading">{enq.student_name}</div>
-                    <div className="text-xs text-muted flex items-center gap-1.5 mt-0.5">
-                      <GraduationCap className="w-3.5 h-3.5 text-brand-600" />
-                      <span>{enq.class_name || `Class ID: ${enq.class_id}`}</span>
-                      <span className="text-slate-300">•</span>
-                      <span className="capitalize">{enq.gender}</span>
-                    </div>
-                  </td>
+            {/* Upcoming Follow-ups */}
+            <button
+              type="button"
+              onClick={() => setActiveRibbonFilter(activeRibbonFilter === 'upcoming' ? 'all' : 'upcoming')}
+              className={`text-left p-4 rounded-2xl border transition-all ${
+                activeRibbonFilter === 'upcoming'
+                  ? 'border-blue-500 bg-blue-50/50 shadow-md ring-2 ring-blue-100'
+                  : 'border-border bg-white hover:border-blue-200'
+              }`}
+            >
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
+                <span>Upcoming Follow-ups</span>
+                <Calendar className="w-4 h-4 text-blue-500" />
+              </div>
+              <div className="text-2xl font-bold text-blue-600">{ribbonMetrics.upcoming}</div>
+              <p className="text-[11px] text-muted mt-1">Scheduled in future days</p>
+            </button>
 
-                  {/* Parent */}
-                  <td className="py-4 px-5">
-                    <div className="font-medium text-slate-800">{enq.parent_name}</div>
-                    <div className="text-xs text-muted flex items-center gap-1 mt-0.5">
-                      <Phone className="w-3 h-3 text-slate-400" />
-                      <span>{enq.primary_phone}</span>
-                    </div>
-                  </td>
+            {/* All Enquiries */}
+            <button
+              type="button"
+              onClick={() => setActiveRibbonFilter('all')}
+              className={`text-left p-4 rounded-2xl border transition-all ${
+                activeRibbonFilter === 'all'
+                  ? 'border-brand-500 bg-brand-50/50 shadow-md ring-2 ring-brand-100'
+                  : 'border-border bg-white hover:border-brand-200'
+              }`}
+            >
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 mb-1">
+                <span>Total Enquiries</span>
+                <UserPlus className="w-4 h-4 text-brand-500" />
+              </div>
+              <div className="text-2xl font-bold text-heading">{ribbonMetrics.all}</div>
+              <p className="text-[11px] text-muted mt-1">Active prospect pipeline</p>
+            </button>
+          </div>
 
-                  {/* Lead Source */}
-                  <td className="py-4 px-5">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
-                      {enq.source_name || enq.lead_source_name || 'Walk-in'}
-                    </span>
-                  </td>
+          {/* Filter Toolbar */}
+          <div className="bg-white border border-border rounded-2xl p-4 shadow-card space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Search */}
+              <div className="relative flex-1 min-w-[220px]">
+                <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by student, parent, phone, enquiry no..."
+                  className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-border rounded-xl focus:bg-white focus:ring-2 focus:ring-brand-500 outline-none"
+                />
+              </div>
 
-                  {/* Next Followup */}
-                  <td className="py-4 px-5">{formatFollowupDate(enq.next_followup_date)}</td>
+              {/* Branch filter */}
+              <div className="w-48">
+                <select
+                  value={selectedBranchId}
+                  onChange={(e) => setSelectedBranchId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
+                >
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                  {/* Status Badge */}
-                  <td className="py-4 px-5 text-center">
-                    {getStatusBadge(enq.status, enq.stage)}
-                  </td>
+              {/* Class filter */}
+              <div className="w-40">
+                <select
+                  value={selectedClassId}
+                  onChange={(e) => setSelectedClassId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
+                >
+                  <option value="">All Classes</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                  {/* Actions */}
-                  <td className="py-4 px-5 text-right space-x-1.5 whitespace-nowrap">
-                    {/* Log / View Follow-ups */}
-                    <button
-                      onClick={() => handleOpenFollowups(enq)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-brand-50 text-slate-700 hover:text-brand-600 transition-colors"
-                      title="Follow-up history & notes"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>Follow-up</span>
-                    </button>
+              {/* Lead Source filter */}
+              <div className="w-44">
+                <select
+                  value={selectedLeadSourceId}
+                  onChange={(e) => setSelectedLeadSourceId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
+                >
+                  <option value="">All Sources</option>
+                  {leadSources.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-                    {/* Convert to Application (only if not already converted/admitted) */}
-                    {enq.stage !== 'application' && enq.stage !== 'admitted' && (
-                      <button
-                        onClick={() => handleConvertToApplication(enq)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors"
-                        title="Convert to formal application"
-                      >
-                        <FileCheck className="w-3.5 h-3.5" />
-                        <span>To App</span>
-                      </button>
-                    )}
+            {/* Status Tabs */}
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 overflow-x-auto text-xs font-medium">
+              {[
+                { key: 'all', label: 'All Enquiries' },
+                { key: 'open', label: 'Open' },
+                { key: 'interested', label: 'Interested' },
+                { key: 'callback_requested', label: 'Callback Requested' },
+                { key: 'converted', label: 'Converted' },
+                { key: 'dropped', label: 'Dropped' },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setSelectedStatusTab(tab.key)}
+                  className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                    selectedStatusTab === tab.key
+                      ? 'bg-brand-600 text-white shadow-xs'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                    {/* Fast-track Direct Admission (skip application) */}
-                    {enq.stage !== 'admitted' && (
-                      <button
-                        onClick={() => handleOpenFastTrack(enq)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors"
-                        title="Fast-track direct admission"
-                      >
-                        <Zap className="w-3.5 h-3.5" />
-                        <span>Direct Admit</span>
-                      </button>
-                    )}
-                  </td>
+          {/* Enquiries Table */}
+          <div className="bg-white border border-border rounded-2xl shadow-card overflow-hidden">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="bg-slate-50/75 border-b border-border text-xs uppercase font-semibold text-slate-500">
+                  <th className="py-3.5 px-5">Enquiry No & Date</th>
+                  <th className="py-3.5 px-5">Student / Class</th>
+                  <th className="py-3.5 px-5">Parent & Contact</th>
+                  <th className="py-3.5 px-5">Lead Source</th>
+                  <th className="py-3.5 px-5">Next Follow-up</th>
+                  <th className="py-3.5 px-5 text-center">Status</th>
+                  <th className="py-3.5 px-5 text-right">Actions</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {loading || !isWorkflowReady ? (
+                  <tr>
+                    <td colSpan="7" className="py-12 text-center text-muted">
+                      Loading enquiry records...
+                    </td>
+                  </tr>
+                ) : enquiries.length === 0 ? (
+                  <tr>
+                    <td colSpan="7" className="py-12 text-center text-muted">
+                      No enquiries match current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  enquiries.map((enq) => (
+                    <tr key={enq.id} className="hover:bg-slate-50/50 transition-colors">
+                      {/* Enquiry No */}
+                      <td className="py-4 px-5">
+                        <div className="font-mono font-bold text-heading">{enq.enquiry_no}</div>
+                        <div className="text-[11px] text-muted">
+                          {new Date(enq.created_at || Date.now()).toLocaleDateString('en-GB')}
+                        </div>
+                      </td>
+
+                      {/* Student & Class */}
+                      <td className="py-4 px-5">
+                        <div className="font-semibold text-heading">{enq.student_name}</div>
+                        <div className="text-xs text-muted flex items-center gap-1.5 mt-0.5">
+                          <GraduationCap className="w-3.5 h-3.5 text-brand-600" />
+                          <span>{enq.class_name || `Class ID: ${enq.class_id}`}</span>
+                          <span className="text-slate-300">•</span>
+                          <span className="capitalize">{enq.gender}</span>
+                        </div>
+                      </td>
+
+                      {/* Parent */}
+                      <td className="py-4 px-5">
+                        <div className="font-medium text-slate-800">{enq.parent_name}</div>
+                        <div className="text-xs text-muted flex items-center gap-1 mt-0.5">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          <span>{enq.primary_phone}</span>
+                        </div>
+                      </td>
+
+                      {/* Lead Source */}
+                      <td className="py-4 px-5">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                          {enq.source_name || enq.lead_source_name || 'Walk-in'}
+                        </span>
+                      </td>
+
+                      {/* Next Followup */}
+                      <td className="py-4 px-5">{formatFollowupDate(enq.next_followup_date)}</td>
+
+                      {/* Status Badge */}
+                      <td className="py-4 px-5 text-center">
+                        {getStatusBadge(enq.status, enq.stage)}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-4 px-5 text-right space-x-1.5 whitespace-nowrap">
+                        {/* Log / View Follow-ups */}
+                        <button
+                          onClick={() => handleOpenFollowups(enq)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-brand-50 text-slate-700 hover:text-brand-600 transition-colors"
+                          title="Follow-up history & notes"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>Follow-up</span>
+                        </button>
+
+                        {/* Convert to Application (only if Application stage is enabled) */}
+                        {workflow.enable_application &&
+                          enq.stage !== 'application' &&
+                          enq.stage !== 'admitted' && (
+                            <button
+                              onClick={() => handleConvertToApplication(enq)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors"
+                              title="Convert to formal application"
+                            >
+                              <FileCheck className="w-3.5 h-3.5" />
+                              <span>To App</span>
+                            </button>
+                          )}
+
+                        {/* Fast-track Direct Admission (only if Fast-Track is enabled) */}
+                        {workflow.allow_direct_enquiry_to_admission && enq.stage !== 'admitted' && (
+                          <button
+                            onClick={() => handleOpenFastTrack(enq)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors"
+                            title="Fast-track direct admission"
+                          >
+                            <Zap className="w-3.5 h-3.5" />
+                            <span>Direct Admit</span>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {/* Follow-up Timeline & New Interaction Modal */}
       <Modal
@@ -716,8 +835,7 @@ export const EnquiryList = () => {
                     setFollowupForm({ ...followupForm, followup_date: e.target.value })
                   }
                   className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-border rounded-lg outline-none"
-                >
-                </input>
+                />
               </div>
 
               <div>

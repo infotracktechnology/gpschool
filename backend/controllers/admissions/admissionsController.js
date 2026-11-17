@@ -1,5 +1,6 @@
 import { pool, query } from '../../config/database.js';
 import { getNextSequenceNumber } from '../../services/sequenceService.js';
+import { syncAdmissionToStudent } from '../../services/studentSyncService.js';
 
 export const getStudents = async (req, res, next) => {
   try {
@@ -176,6 +177,26 @@ export const directAdmissionWalkin = async (req, res, next) => {
         emergency_contact_phone || primary_phone.trim(),
       ]
     );
+
+    // Sync into students + student_enrollments master tables
+    await syncAdmissionToStudent(conn, {
+      admission_no: admissionNo,
+      student_name,
+      gender,
+      dob,
+      branch_id: Number(branch_id),
+      academic_year_id: Number(academic_year_id),
+      class_id: Number(class_id),
+      section_id: Number(section_id),
+      roll_no,
+      admission_category,
+      parent_name,
+      primary_phone,
+      address_street,
+      city,
+      emergency_contact_name,
+      emergency_contact_phone,
+    });
 
     await conn.commit();
 

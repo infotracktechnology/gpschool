@@ -10,6 +10,7 @@ import streamsRoutes from './streamsRoutes.js';
 import sectionsRoutes from './sectionsRoutes.js';
 import subjectsRoutes from './subjectsRoutes.js';
 import admissionsRoutes from './admissionsRoutes.js';
+import studentsRoutes from './studentsRoutes.js';
 
 const router = Router();
 
@@ -17,6 +18,7 @@ router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/settings/boards', boardRoutes);
 router.use('/settings/branches', branchRoutes);
+router.use('/branches', branchRoutes); // Alias for top-level access
 router.use('/settings/academic-years', academicYearRoutes);
 router.use('/settings/branch-academic-years', branchAcademicYearRoutes);
 
@@ -28,5 +30,8 @@ router.use('/academics/subjects', subjectsRoutes);
 
 // Admissions Module
 router.use('/admissions', admissionsRoutes);
+
+// Students Module
+router.use('/students', studentsRoutes);
 
 export default router;

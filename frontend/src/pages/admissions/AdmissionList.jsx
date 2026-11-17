@@ -18,20 +18,33 @@ import {
   Home,
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
 
 export const AdmissionList = () => {
-  const [branches, setBranches] = useState([]);
-  const [academicYears, setAcademicYears] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [sections, setSections] = useState([]);
+  const {
+    branches,
+    selectedBranch,
+    changeBranch,
+    academicYears,
+    selectedAcademicYear,
+    changeAcademicYear,
+    classes,
+    selectedClassId,
+    setSelectedClassId,
+    sections,
+    selectedSectionId,
+    setSelectedSectionId,
+  } = useAuth();
+
+  const effectiveBranchId =
+    selectedBranch && selectedBranch.id !== 'all' ? String(selectedBranch.id) : '';
+  const effectiveAcademicYearId = selectedAcademicYear
+    ? String(selectedAcademicYear.id)
+    : '';
 
   // Filters
-  const [selectedBranchId, setSelectedBranchId] = useState('');
-  const [selectedAcademicYearId, setSelectedAcademicYearId] = useState('');
-  const [selectedClassId, setSelectedClassId] = useState('');
-  const [selectedSectionId, setSelectedSectionId] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -42,7 +55,9 @@ export const AdmissionList = () => {
 
   // Direct Walk-in Admission Modal State
   const [isWalkinModalOpen, setIsWalkinModalOpen] = useState(false);
+  const [walkinClasses, setWalkinClasses] = useState([]);
   const [walkinSections, setWalkinSections] = useState([]);
+  const [loadingWalkinLookups, setLoadingWalkinLookups] = useState(false);
   const [walkinForm, setWalkinForm] = useState({
     branch_id: '',
     academic_year_id: '',
@@ -66,100 +81,144 @@ export const AdmissionList = () => {
   // View Student Card Modal State
   const [viewStudent, setViewStudent] = useState(null);
 
-  // Load Lookups
-  useEffect(() => {
-    const fetchLookups = async () => {
-      try {
-        const [branchRes, yearRes, classRes] = await Promise.all([
-          api.get('/settings/branches'),
-          api.get('/settings/academic-years'),
-          api.get('/academics/classes'),
-        ]);
+  // Open Direct Walk-in Modal with proper initial cascade
+  const handleOpenWalkin = async () => {
+    const initialBranchId =
+      effectiveBranchId || (branches.length > 0 ? String(branches[0].id) : '1');
+    const initialYearId =
+      effectiveAcademicYearId ||
+      (academicYears.length > 0 ? String(academicYears[0].id) : '1');
 
-        const bList = branchRes.branches || branchRes.data || [];
-        const yList = yearRes.academicYears || yearRes.data || [];
-        const cList = classRes.classes || classRes.data || [];
+    setLoadingWalkinLookups(true);
+    let initialClassId = '';
+    let initialSectionId = '';
+    let cList = [];
+    let sList = [];
 
-        setBranches(bList);
-        setAcademicYears(yList);
-        setClasses(cList);
+    try {
+      if (initialBranchId) {
+        const cRes = await api.get(`/academics/classes?branch_id=${initialBranchId}`);
+        cList = cRes.classes || cRes.data || [];
+        setWalkinClasses(cList);
 
-        if (bList.length > 0) {
-          const bId = String(bList[0].id);
-          setSelectedBranchId(bId);
-          setWalkinForm((prev) => ({ ...prev, branch_id: bId }));
-        }
-        if (yList.length > 0) {
-          const activeYear = yList.find((y) => y.status === 'active') || yList[0];
-          const yId = String(activeYear.id);
-          setSelectedAcademicYearId(yId);
-          setWalkinForm((prev) => ({ ...prev, academic_year_id: yId }));
-        }
         if (cList.length > 0) {
-          setWalkinForm((prev) => ({ ...prev, class_id: String(cList[0].id) }));
-        }
-      } catch (err) {
-        console.error('Failed to load lookups:', err);
-      }
-    };
-    fetchLookups();
-  }, []);
-
-  // Fetch sections for filter bar when class/branch changes
-  useEffect(() => {
-    const fetchSections = async () => {
-      if (!selectedBranchId || !selectedClassId) {
-        setSections([]);
-        setSelectedSectionId('');
-        return;
-      }
-      try {
-        const res = await api.get(
-          `/academics/sections?branch_id=${selectedBranchId}&class_id=${selectedClassId}`
-        );
-        const sList = res.sections || res.data || [];
-        setSections(sList);
-      } catch (err) {
-        setSections([]);
-      }
-    };
-    fetchSections();
-  }, [selectedBranchId, selectedClassId]);
-
-  // Fetch sections for Walk-in Modal when its class/branch changes
-  useEffect(() => {
-    const fetchWalkinSections = async () => {
-      if (!walkinForm.branch_id || !walkinForm.class_id) {
-        setWalkinSections([]);
-        return;
-      }
-      try {
-        const res = await api.get(
-          `/academics/sections?branch_id=${walkinForm.branch_id}&class_id=${walkinForm.class_id}`
-        );
-        const sList = res.sections || res.data || [];
-        setWalkinSections(sList);
-        if (sList.length > 0) {
-          setWalkinForm((prev) => ({ ...prev, section_id: String(sList[0].id) }));
+          initialClassId = String(cList[0].id);
+          const sRes = await api.get(
+            `/academics/sections?branch_id=${initialBranchId}&class_id=${initialClassId}`
+          );
+          sList = sRes.sections || sRes.data || [];
+          setWalkinSections(sList);
+          if (sList.length > 0) {
+            initialSectionId = String(sList[0].id);
+          }
         } else {
-          setWalkinForm((prev) => ({ ...prev, section_id: '' }));
+          setWalkinSections([]);
         }
-      } catch (err) {
-        setWalkinSections([]);
       }
-    };
-    if (isWalkinModalOpen) {
-      fetchWalkinSections();
+    } catch (err) {
+      console.error('Error preloading walkin lookups:', err);
+    } finally {
+      setLoadingWalkinLookups(false);
     }
-  }, [walkinForm.branch_id, walkinForm.class_id, isWalkinModalOpen]);
+
+    setWalkinForm({
+      branch_id: initialBranchId,
+      academic_year_id: initialYearId,
+      class_id: initialClassId,
+      section_id: initialSectionId,
+      student_name: '',
+      gender: 'male',
+      dob: '',
+      parent_name: '',
+      primary_phone: '',
+      address_street: '',
+      city: '',
+      admission_date: new Date().toISOString().slice(0, 10),
+      admission_category: 'general',
+      roll_no: '',
+      emergency_contact_name: '',
+      emergency_contact_phone: '',
+    });
+    setIsWalkinModalOpen(true);
+  };
+
+  // When branch changes inside Walk-in modal -> reload its classes & first class's sections
+  const handleWalkinBranchChange = async (newBranchId) => {
+    setWalkinForm((prev) => ({
+      ...prev,
+      branch_id: newBranchId,
+      class_id: '',
+      section_id: '',
+    }));
+    setWalkinClasses([]);
+    setWalkinSections([]);
+    if (!newBranchId) return;
+
+    setLoadingWalkinLookups(true);
+    try {
+      const cRes = await api.get(`/academics/classes?branch_id=${newBranchId}`);
+      const cList = cRes.classes || cRes.data || [];
+      setWalkinClasses(cList);
+
+      if (cList.length > 0) {
+        const firstClassId = String(cList[0].id);
+        const sRes = await api.get(
+          `/academics/sections?branch_id=${newBranchId}&class_id=${firstClassId}`
+        );
+        const sList = sRes.sections || sRes.data || [];
+        setWalkinSections(sList);
+        setWalkinForm((prev) => ({
+          ...prev,
+          branch_id: newBranchId,
+          class_id: firstClassId,
+          section_id: sList.length > 0 ? String(sList[0].id) : '',
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to update walkin classes on branch change:', err);
+    } finally {
+      setLoadingWalkinLookups(false);
+    }
+  };
+
+  // When class changes inside Walk-in modal -> reload its sections
+  const handleWalkinClassChange = async (newClassId) => {
+    setWalkinForm((prev) => ({
+      ...prev,
+      class_id: newClassId,
+      section_id: '',
+    }));
+    setWalkinSections([]);
+    if (!newClassId || !walkinForm.branch_id) return;
+
+    setLoadingWalkinLookups(true);
+    try {
+      const sRes = await api.get(
+        `/academics/sections?branch_id=${walkinForm.branch_id}&class_id=${newClassId}`
+      );
+      const sList = sRes.sections || sRes.data || [];
+      setWalkinSections(sList);
+      if (sList.length > 0) {
+        setWalkinForm((prev) => ({
+          ...prev,
+          class_id: newClassId,
+          section_id: String(sList[0].id),
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to update walkin sections on class change:', err);
+    } finally {
+      setLoadingWalkinLookups(false);
+    }
+  };
 
   // Fetch confirmed students roster
   const fetchAdmissions = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (selectedBranchId) params.append('branch_id', selectedBranchId);
-      if (selectedAcademicYearId) params.append('academic_year_id', selectedAcademicYearId);
+      if (effectiveBranchId) params.append('branch_id', effectiveBranchId);
+      if (effectiveAcademicYearId) params.append('academic_year_id', effectiveAcademicYearId);
       if (selectedClassId) params.append('class_id', selectedClassId);
       if (selectedSectionId) params.append('section_id', selectedSectionId);
       if (selectedCategory !== 'all') params.append('admission_category', selectedCategory);
@@ -174,8 +233,8 @@ export const AdmissionList = () => {
       setLoading(false);
     }
   }, [
-    selectedBranchId,
-    selectedAcademicYearId,
+    effectiveBranchId,
+    effectiveAcademicYearId,
     selectedClassId,
     selectedSectionId,
     selectedCategory,
@@ -249,7 +308,7 @@ export const AdmissionList = () => {
         </div>
 
         <button
-          onClick={() => setIsWalkinModalOpen(true)}
+          onClick={handleOpenWalkin}
           className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
         >
           <UserPlus className="w-4 h-4" />
@@ -291,10 +350,11 @@ export const AdmissionList = () => {
         {/* Branch */}
         <div className="w-44">
           <select
-            value={selectedBranchId}
-            onChange={(e) => setSelectedBranchId(e.target.value)}
+            value={effectiveBranchId || (selectedBranch?.id === 'all' ? 'all' : '')}
+            onChange={(e) => changeBranch(e.target.value)}
             className="w-full px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
           >
+            <option value="all">All Campuses</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
@@ -306,13 +366,16 @@ export const AdmissionList = () => {
         {/* Academic Year */}
         <div className="w-40">
           <select
-            value={selectedAcademicYearId}
-            onChange={(e) => setSelectedAcademicYearId(e.target.value)}
+            value={effectiveAcademicYearId}
+            onChange={(e) => {
+              const yr = academicYears.find((y) => String(y.id) === e.target.value);
+              changeAcademicYear(yr || null);
+            }}
             className="w-full px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
           >
             {academicYears.map((y) => (
               <option key={y.id} value={y.id}>
-                {y.name}
+                {y.name || y.code}
               </option>
             ))}
           </select>
@@ -481,21 +544,21 @@ export const AdmissionList = () => {
             Immediate counter enrollment: Allocates sequential admission number and class section directly.
           </div>
 
-          {/* Academic & Class */}
+          {/* Academic & Class Cascade: Year -> Branch -> Class -> Section */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Branch <span className="text-rose-500">*</span>
+                Academic Year <span className="text-rose-500">*</span>
               </label>
               <select
                 required
-                value={walkinForm.branch_id}
-                onChange={(e) => setWalkinForm({ ...walkinForm, branch_id: e.target.value })}
+                value={walkinForm.academic_year_id ? String(walkinForm.academic_year_id) : ''}
+                onChange={(e) => setWalkinForm({ ...walkinForm, academic_year_id: e.target.value })}
                 className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-border rounded-lg outline-none"
               >
-                {branches.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
+                {academicYears.map((y) => (
+                  <option key={y.id} value={String(y.id)}>
+                    {y.name || y.code}
                   </option>
                 ))}
               </select>
@@ -503,17 +566,18 @@ export const AdmissionList = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Academic Year <span className="text-rose-500">*</span>
+                Branch / Campus <span className="text-rose-500">*</span>
               </label>
               <select
                 required
-                value={walkinForm.academic_year_id}
-                onChange={(e) => setWalkinForm({ ...walkinForm, academic_year_id: e.target.value })}
+                value={walkinForm.branch_id ? String(walkinForm.branch_id) : ''}
+                onChange={(e) => handleWalkinBranchChange(e.target.value)}
                 className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-border rounded-lg outline-none"
               >
-                {academicYears.map((y) => (
-                  <option key={y.id} value={y.id}>
-                    {y.name}
+                <option value="">Select Branch</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={String(b.id)}>
+                    {b.name}
                   </option>
                 ))}
               </select>
@@ -525,15 +589,22 @@ export const AdmissionList = () => {
               </label>
               <select
                 required
-                value={walkinForm.class_id}
-                onChange={(e) => setWalkinForm({ ...walkinForm, class_id: e.target.value })}
-                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-border rounded-lg outline-none"
+                value={walkinForm.class_id ? String(walkinForm.class_id) : ''}
+                onChange={(e) => handleWalkinClassChange(e.target.value)}
+                disabled={!walkinForm.branch_id || loadingWalkinLookups}
+                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-border rounded-lg outline-none disabled:bg-slate-100"
               >
-                {classes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+                {loadingWalkinLookups ? (
+                  <option value="">Loading classes...</option>
+                ) : walkinClasses.length === 0 ? (
+                  <option value="">No classes</option>
+                ) : (
+                  walkinClasses.map((c) => (
+                    <option key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
 
@@ -543,15 +614,18 @@ export const AdmissionList = () => {
               </label>
               <select
                 required
-                value={walkinForm.section_id}
+                value={walkinForm.section_id ? String(walkinForm.section_id) : ''}
                 onChange={(e) => setWalkinForm({ ...walkinForm, section_id: e.target.value })}
-                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-border rounded-lg outline-none"
+                disabled={!walkinForm.class_id || loadingWalkinLookups}
+                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-border rounded-lg outline-none disabled:bg-slate-100"
               >
-                {walkinSections.length === 0 ? (
+                {loadingWalkinLookups ? (
+                  <option value="">Loading sections...</option>
+                ) : walkinSections.length === 0 ? (
                   <option value="">No sections</option>
                 ) : (
                   walkinSections.map((s) => (
-                    <option key={s.id} value={s.id}>
+                    <option key={s.id} value={String(s.id)}>
                       Sec {s.name} (Cap {s.capacity || 40})
                     </option>
                   ))

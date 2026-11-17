@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Plus,
   Edit2,
@@ -7,12 +7,12 @@ import {
   Search,
   CheckCircle,
   AlertCircle,
-  ArrowUpDown,
-  Filter,
+  Building2,
 } from 'lucide-react';
 import { api } from '../../api/client';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
+import { useAuth } from '../../context/AuthContext';
 
 export const STAGES = [
   { value: 'pre_primary', label: 'Pre-Primary', color: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -23,6 +23,11 @@ export const STAGES = [
 ];
 
 export const Classes = () => {
+  const { user, selectedBranch, branches = [] } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
+  const userBranchId = user?.branch_id;
+
+  const [localBranches, setLocalBranches] = useState([]);
   const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -30,6 +35,7 @@ export const Classes = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingClass, setEditingClass] = useState(null);
   const [formData, setFormData] = useState({
+    branch_id: '',
     code: '',
     name: '',
     stage: 'primary',
@@ -39,24 +45,64 @@ export const Classes = () => {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
 
-  const fetchClasses = async () => {
+  // Sync branches with fallback if AuthContext branches is initially empty
+  useEffect(() => {
+    if (branches && branches.length > 0) {
+      setLocalBranches(branches);
+    } else {
+      api.get('/branches')
+        .then((res) => setLocalBranches(res.branches || res.data || []))
+        .catch(() => {
+          api.get('/settings/branches')
+            .then((res) => setLocalBranches(res.branches || res.data || []))
+            .catch(() => {});
+        });
+    }
+  }, [branches]);
+
+  const activeBranches = branches && branches.length > 0 ? branches : localBranches;
+
+  const getDefaultBranchId = useCallback(() => {
+    if (selectedBranch && selectedBranch.id !== 'all') {
+      return String(selectedBranch.id);
+    }
+    if (userBranchId) {
+      return String(userBranchId);
+    }
+    if (activeBranches.length > 0) {
+      return String(activeBranches[0].id);
+    }
+    return '';
+  }, [selectedBranch, userBranchId, activeBranches]);
+
+  // Fetch classes: pass branch_id when selectedBranch is specific (not 'all')
+  const fetchClasses = useCallback(async () => {
+    setLoading(true);
     try {
-      const data = await api.get('/academics/classes');
+      const params = new URLSearchParams();
+      if (selectedBranch && selectedBranch.id !== 'all') {
+        params.append('branch_id', selectedBranch.id);
+      }
+      const qs = params.toString();
+      const url = qs ? `/academics/classes?${qs}` : '/academics/classes';
+      const data = await api.get(url);
       setClasses(data.classes || data.data || []);
     } catch (err) {
       console.error('Failed to fetch classes:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedBranch]);
 
+  // Re-fetch classes whenever selectedBranch changes
   useEffect(() => {
     fetchClasses();
-  }, []);
+  }, [fetchClasses]);
 
   const handleOpenAdd = () => {
     setEditingClass(null);
     setFormData({
+      branch_id: getDefaultBranchId(),
       code: '',
       name: '',
       stage: selectedStage !== 'all' ? selectedStage : 'primary',
@@ -69,6 +115,7 @@ export const Classes = () => {
   const handleOpenEdit = (c) => {
     setEditingClass(c);
     setFormData({
+      branch_id: c.branch_id ? String(c.branch_id) : getDefaultBranchId(),
       code: c.code,
       name: c.name,
       stage: c.stage,
@@ -80,15 +127,28 @@ export const Classes = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.branch_id) {
+      setMessage({ type: 'error', text: 'Please select a branch' });
+      return;
+    }
+
     setSubmitting(true);
     setMessage(null);
 
+    const payload = {
+      ...formData,
+      branch_id: parseInt(formData.branch_id, 10),
+      display_order: parseInt(formData.display_order, 10) || 1,
+      code: formData.code.trim().toUpperCase(),
+      name: formData.name.trim(),
+    };
+
     try {
       if (editingClass) {
-        await api.put(`/academics/classes/${editingClass.id}`, formData);
+        await api.put(`/academics/classes/${editingClass.id}`, payload);
         setMessage({ type: 'success', text: 'Class updated successfully!' });
       } else {
-        await api.post('/academics/classes', formData);
+        await api.post('/academics/classes', payload);
         setMessage({ type: 'success', text: 'Class created successfully!' });
       }
       setIsModalOpen(false);
@@ -110,6 +170,8 @@ export const Classes = () => {
       setMessage({ type: 'error', text: err.message || 'Failed to delete class' });
     }
   };
+
+  const showBranchColumn = !selectedBranch || selectedBranch.id === 'all';
 
   const filteredClasses = classes.filter((c) => {
     const matchesSearch =
@@ -140,6 +202,12 @@ export const Classes = () => {
             <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200">
               {classes.length} Total
             </span>
+            {selectedBranch && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                <Building2 className="w-3.5 h-3.5 text-slate-500" />
+                {selectedBranch.id === 'all' ? 'All Campuses' : selectedBranch.name}
+              </span>
+            )}
           </div>
           <p className="text-sm text-muted mt-1">
             Standard grade levels and academic stages across the institution.
@@ -271,7 +339,15 @@ export const Classes = () => {
                           {c.display_order ?? '#'}
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-heading">{c.name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-heading">{c.name}</p>
+                            {showBranchColumn && (c.branch_name || c.branch_id) && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                <Building2 className="w-3 h-3 text-indigo-500" />
+                                {c.branch_name || activeBranches.find((b) => String(b.id) === String(c.branch_id))?.name || `Branch #${c.branch_id}`}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs font-mono text-muted">Code: {c.code}</p>
                         </div>
                       </div>
@@ -312,6 +388,7 @@ export const Classes = () => {
               <thead>
                 <tr className="border-b border-border bg-slate-50/60 font-semibold text-slate-600">
                   <th className="py-3 px-4 w-16">Order</th>
+                  {showBranchColumn && <th className="py-3 px-4">Branch</th>}
                   <th className="py-3 px-4">Code</th>
                   <th className="py-3 px-4">Class Name</th>
                   <th className="py-3 px-4">Stage</th>
@@ -329,6 +406,14 @@ export const Classes = () => {
                         <td className="py-3 px-4 font-mono font-medium text-slate-500">
                           {c.display_order ?? '-'}
                         </td>
+                        {showBranchColumn && (
+                          <td className="py-3 px-4">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              <Building2 className="w-3 h-3 text-indigo-500" />
+                              {c.branch_name || activeBranches.find((b) => String(b.id) === String(c.branch_id))?.name || `Branch #${c.branch_id}`}
+                            </span>
+                          </td>
+                        )}
                         <td className="py-3 px-4 font-mono font-bold text-heading">
                           {c.code}
                         </td>
@@ -383,6 +468,35 @@ export const Classes = () => {
         title={editingClass ? 'Edit Class' : 'Add New Class'}
       >
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Branch Field */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-brand-600" />
+                Branch / Campus <span className="text-rose-500">*</span>
+              </span>
+              {!isSuperAdmin && (
+                <span className="text-[10px] font-normal text-muted">
+                  (Locked to your branch)
+                </span>
+              )}
+            </label>
+            <select
+              required
+              disabled={!isSuperAdmin}
+              value={formData.branch_id}
+              onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
+              className="w-full px-3.5 py-2 text-sm rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 bg-white disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-not-allowed"
+            >
+              <option value="">Select Branch</option>
+              {activeBranches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} ({b.code})
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
               Class Name <span className="text-rose-500">*</span>

@@ -30,6 +30,17 @@ import { WorkflowSettings } from './pages/admissions/settings/WorkflowSettings';
 import { NumberSeriesSettings } from './pages/admissions/settings/NumberSeriesSettings';
 import { LeadSources } from './pages/admissions/settings/LeadSources';
 
+// Student Management Pages
+import { StudentList } from './pages/students/StudentList';
+import { StudentProfile } from './pages/students/StudentProfile';
+import { StudentBulkEdit } from './pages/students/StudentBulkEdit';
+import { SectionChange } from './pages/students/SectionChange';
+import { StudentPromotion } from './pages/students/StudentPromotion';
+import { AcademicGroups } from './pages/students/AcademicGroups';
+import { SubjectMapping } from './pages/students/SubjectMapping';
+import { InactiveTC } from './pages/students/InactiveTC';
+import { BulkCredentials } from './pages/students/BulkCredentials';
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -80,6 +91,19 @@ export default function App() {
             <Route path="settings/admission-workflow" element={<WorkflowSettings />} />
             <Route path="settings/admission-series" element={<NumberSeriesSettings />} />
             <Route path="settings/lead-sources" element={<LeadSources />} />
+
+            {/* Student Management Module Routes */}
+            <Route path="students" element={<StudentList />} />
+            <Route path="students/new" element={<StudentProfile />} />
+            <Route path="students/:id" element={<StudentProfile />} />
+            <Route path="students/:id/edit" element={<StudentProfile />} />
+            <Route path="students/bulk-edit" element={<StudentBulkEdit />} />
+            <Route path="students/section-change" element={<SectionChange />} />
+            <Route path="students/promotion" element={<StudentPromotion />} />
+            <Route path="students/academic-groups" element={<AcademicGroups />} />
+            <Route path="students/subject-mapping" element={<SubjectMapping />} />
+            <Route path="students/tc" element={<InactiveTC />} />
+            <Route path="students/credentials" element={<BulkCredentials />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

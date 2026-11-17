@@ -32,6 +32,15 @@ export const ApplicationList = () => {
   const [selectedStatusTab, setSelectedStatusTab] = useState('all');
   const [search, setSearch] = useState('');
 
+  // Workflow settings state
+  const [workflow, setWorkflow] = useState({
+    enable_enquiry: true,
+    enable_application: true,
+    allow_direct_enquiry_to_admission: true,
+    allow_direct_walkin_admission: true,
+  });
+  const [checkedBranchId, setCheckedBranchId] = useState('');
+
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
@@ -55,6 +64,8 @@ export const ApplicationList = () => {
   // View Details Modal State
   const [viewDetailsApp, setViewDetailsApp] = useState(null);
 
+  const isWorkflowReady = Boolean(selectedBranchId) && checkedBranchId === selectedBranchId;
+
   // Fetch Lookups
   useEffect(() => {
     const fetchLookups = async () => {
@@ -70,16 +81,73 @@ export const ApplicationList = () => {
         setBranches(bList);
         setClasses(cList);
 
-        if (bList.length > 0) setSelectedBranchId(String(bList[0].id));
+        if (bList.length > 0) {
+          setSelectedBranchId(String(bList[0].id));
+        } else {
+          setLoading(false);
+        }
       } catch (err) {
         console.error('Failed to load lookups:', err);
+        setLoading(false);
       }
     };
     fetchLookups();
   }, []);
 
-  // Fetch applications
+  // 1. First check branch workflow when branch changes
+  useEffect(() => {
+    if (!selectedBranchId) return;
+    let isCancelled = false;
+
+    const checkWorkflow = async () => {
+      setLoading(true);
+      setMessage(null);
+      try {
+        const res = await api.get(`/admissions/settings/workflow/${selectedBranchId}`);
+        const data = res.workflow || res.data || res;
+
+        if (!isCancelled) {
+          if (data && typeof data.enable_application !== 'undefined') {
+            setWorkflow({
+              enable_enquiry: Boolean(data.enable_enquiry),
+              enable_application: Boolean(data.enable_application),
+              allow_direct_enquiry_to_admission: Boolean(data.allow_direct_enquiry_to_admission),
+              allow_direct_walkin_admission: Boolean(data.allow_direct_walkin_admission),
+            });
+          } else {
+            setWorkflow({
+              enable_enquiry: true,
+              enable_application: true,
+              allow_direct_enquiry_to_admission: true,
+              allow_direct_walkin_admission: true,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to check admission workflow:', err);
+      } finally {
+        if (!isCancelled) {
+          setCheckedBranchId(selectedBranchId);
+        }
+      }
+    };
+
+    checkWorkflow();
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedBranchId]);
+
+  // 2. Fetch applications only if workflow is checked and Application stage is enabled
   const fetchApplications = useCallback(async () => {
+    if (!isWorkflowReady) return;
+
+    if (!workflow.enable_application) {
+      setApplications([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -96,7 +164,14 @@ export const ApplicationList = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedBranchId, selectedClassId, selectedStatusTab, search]);
+  }, [
+    isWorkflowReady,
+    workflow.enable_application,
+    selectedBranchId,
+    selectedClassId,
+    selectedStatusTab,
+    search,
+  ]);
 
   useEffect(() => {
     fetchApplications();
@@ -212,232 +287,277 @@ export const ApplicationList = () => {
           </p>
         </div>
 
-        <button
-          onClick={() => navigate('/admissions/applications/new')}
-          className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Application</span>
-        </button>
+        {isWorkflowReady && workflow.enable_application && (
+          <button
+            onClick={() => navigate('/admissions/applications/new')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Application</span>
+          </button>
+        )}
       </div>
 
-      {message && (
-        <div
-          className={`flex items-center gap-3 p-4 rounded-xl border text-sm font-medium ${
-            message.type === 'success'
-              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-              : 'bg-rose-50 text-rose-800 border-rose-200'
-          }`}
-        >
-          {message.type === 'success' ? (
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+      {/* Show error message if Application stage is inactive for selected branch */}
+      {isWorkflowReady && !workflow.enable_application ? (
+        <div className="space-y-4">
+          {branches.length > 1 && (
+            <div className="bg-white border border-border rounded-2xl p-4 flex items-center gap-3 shadow-card">
+              <Building2 className="w-4 h-4 text-indigo-600" />
+              <span className="text-sm font-medium text-slate-700">Select Branch:</span>
+              <select
+                value={selectedBranchId}
+                onChange={(e) => setSelectedBranchId(e.target.value)}
+                className="px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
+              >
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
-          <span>{message.text}</span>
-        </div>
-      )}
 
-      {/* Filter Toolbar */}
-      <div className="bg-white border border-border rounded-2xl p-4 shadow-card space-y-3">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[240px]">
-            <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by student, application no, father, phone..."
-              className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-border rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-            />
-          </div>
-
-          {/* Branch filter */}
-          <div className="w-48">
-            <select
-              value={selectedBranchId}
-              onChange={(e) => setSelectedBranchId(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
-            >
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Class filter */}
-          <div className="w-44">
-            <select
-              value={selectedClassId}
-              onChange={(e) => setSelectedClassId(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
-            >
-              <option value="">All Classes</option>
-              {classes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+          <div className="flex items-start gap-3 p-5 rounded-2xl border bg-rose-50 text-rose-800 border-rose-200">
+            <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-bold">Application Stage is Inactive</p>
+              <p className="text-rose-700 mt-1">
+                Application workflow is disabled for this branch. Please enable it in{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate('/settings/admission-workflow')}
+                  className="underline font-semibold hover:text-rose-900"
+                >
+                  Admission Workflow Settings
+                </button>{' '}
+                {branches.length > 1 ? 'or switch to another branch.' : 'to use this module.'}
+              </p>
+            </div>
           </div>
         </div>
-
-        {/* Status Tabs */}
-        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 overflow-x-auto text-xs font-medium">
-          {[
-            { key: 'all', label: 'All Applications' },
-            { key: 'submitted', label: 'Submitted' },
-            { key: 'verified', label: 'Verified' },
-            { key: 'approved', label: 'Approved' },
-            { key: 'admitted', label: 'Admitted' },
-            { key: 'rejected', label: 'Rejected' },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setSelectedStatusTab(tab.key)}
-              className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                selectedStatusTab === tab.key
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+      ) : (
+        <>
+          {message && (
+            <div
+              className={`flex items-center gap-3 p-4 rounded-xl border text-sm font-medium ${
+                message.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : 'bg-rose-50 text-rose-800 border-rose-200'
               }`}
             >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-      </div>
+              {message.type === 'success' ? (
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+              )}
+              <span>{message.text}</span>
+            </div>
+          )}
 
-      {/* Applications Roster Table */}
-      <div className="bg-white border border-border rounded-2xl shadow-card overflow-hidden">
-        <table className="w-full text-left text-sm border-collapse">
-          <thead>
-            <tr className="bg-slate-50/75 border-b border-border text-xs uppercase font-semibold text-slate-500">
-              <th className="py-3.5 px-5">App No & Date</th>
-              <th className="py-3.5 px-5">Student / Class</th>
-              <th className="py-3.5 px-5">Parent & Phone</th>
-              <th className="py-3.5 px-5">Location</th>
-              <th className="py-3.5 px-5 text-center">Status</th>
-              <th className="py-3.5 px-5 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {loading ? (
-              <tr>
-                <td colSpan="6" className="py-12 text-center text-muted">
-                  Loading application files...
-                </td>
-              </tr>
-            ) : applications.length === 0 ? (
-              <tr>
-                <td colSpan="6" className="py-12 text-center text-muted">
-                  No applications found under current filters.
-                </td>
-              </tr>
-            ) : (
-              applications.map((app) => (
-                <tr key={app.id} className="hover:bg-slate-50/50 transition-colors">
-                  {/* App No */}
-                  <td className="py-4 px-5">
-                    <div className="font-mono font-bold text-heading">{app.application_no}</div>
-                    <div className="text-[11px] text-muted">
-                      {new Date(app.created_at || Date.now()).toLocaleDateString('en-GB')}
-                    </div>
-                  </td>
+          {/* Filter Toolbar */}
+          <div className="bg-white border border-border rounded-2xl p-4 shadow-card space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Search */}
+              <div className="relative flex-1 min-w-[240px]">
+                <Search className="w-4 h-4 text-muted absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by student, application no, father, phone..."
+                  className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 border border-border rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
 
-                  {/* Student */}
-                  <td className="py-4 px-5">
-                    <div className="font-semibold text-heading">{app.student_name}</div>
-                    <div className="text-xs text-muted flex items-center gap-1.5 mt-0.5">
-                      <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>{app.class_name || `Class ID: ${app.class_id}`}</span>
-                      <span className="text-slate-300">•</span>
-                      <span className="capitalize">{app.gender}</span>
-                    </div>
-                  </td>
+              {/* Branch filter */}
+              <div className="w-48">
+                <select
+                  value={selectedBranchId}
+                  onChange={(e) => setSelectedBranchId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
+                >
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                  {/* Parent */}
-                  <td className="py-4 px-5">
-                    <div className="font-medium text-slate-800">{app.father_name || app.mother_name}</div>
-                    <div className="text-xs text-muted flex items-center gap-1 mt-0.5">
-                      <Phone className="w-3 h-3 text-slate-400" />
-                      <span>{app.father_phone || app.mother_phone}</span>
-                    </div>
-                  </td>
+              {/* Class filter */}
+              <div className="w-44">
+                <select
+                  value={selectedClassId}
+                  onChange={(e) => setSelectedClassId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 border border-border rounded-xl outline-none cursor-pointer"
+                >
+                  <option value="">All Classes</option>
+                  {classes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
-                  {/* Location */}
-                  <td className="py-4 px-5 text-xs text-muted">
-                    <div className="flex items-center gap-1">
-                      <Home className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span className="truncate max-w-[140px]">{app.city ? `${app.city}, ${app.state}` : '—'}</span>
-                    </div>
-                  </td>
+            {/* Status Tabs */}
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-100 overflow-x-auto text-xs font-medium">
+              {[
+                { key: 'all', label: 'All Applications' },
+                { key: 'submitted', label: 'Submitted' },
+                { key: 'verified', label: 'Verified' },
+                { key: 'approved', label: 'Approved' },
+                { key: 'admitted', label: 'Admitted' },
+                { key: 'rejected', label: 'Rejected' },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setSelectedStatusTab(tab.key)}
+                  className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                    selectedStatusTab === tab.key
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                  {/* Status Badge */}
-                  <td className="py-4 px-5 text-center">{getStatusBadge(app.status)}</td>
-
-                  {/* Actions */}
-                  <td className="py-4 px-5 text-right space-x-1.5 whitespace-nowrap">
-                    {/* View Details */}
-                    <button
-                      onClick={() => setViewDetailsApp(app)}
-                      className="p-1.5 text-muted hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
-                      title="View complete application profile"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-
-                    {/* Stage status transitions: Verify */}
-                    {app.status === 'submitted' && (
-                      <button
-                        onClick={() => handleOpenStatusModal(app, 'verified')}
-                        className="px-2 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                        title="Mark verified"
-                      >
-                        Verify
-                      </button>
-                    )}
-
-                    {/* Stage status transitions: Approve / Reject */}
-                    {app.status === 'verified' && (
-                      <>
-                        <button
-                          onClick={() => handleOpenStatusModal(app, 'approved')}
-                          className="px-2 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
-                          title="Approve for admission"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => handleOpenStatusModal(app, 'rejected')}
-                          className="px-2 py-1 text-xs font-semibold rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors"
-                          title="Reject application"
-                        >
-                          Reject
-                        </button>
-                      </>
-                    )}
-
-                    {/* Finalize Admission Button (available when approved) */}
-                    {(app.status === 'approved' || app.status === 'verified') && (
-                      <button
-                        onClick={() => handleOpenFinalizeAdmission(app)}
-                        className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors"
-                        title="Finalize official admission"
-                      >
-                        <UserCheck className="w-3.5 h-3.5" />
-                        <span>Finalize Admission</span>
-                      </button>
-                    )}
-                  </td>
+          {/* Applications Roster Table */}
+          <div className="bg-white border border-border rounded-2xl shadow-card overflow-hidden">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="bg-slate-50/75 border-b border-border text-xs uppercase font-semibold text-slate-500">
+                  <th className="py-3.5 px-5">App No & Date</th>
+                  <th className="py-3.5 px-5">Student / Class</th>
+                  <th className="py-3.5 px-5">Parent & Phone</th>
+                  <th className="py-3.5 px-5">Location</th>
+                  <th className="py-3.5 px-5 text-center">Status</th>
+                  <th className="py-3.5 px-5 text-right">Actions</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {loading || !isWorkflowReady ? (
+                  <tr>
+                    <td colSpan="6" className="py-12 text-center text-muted">
+                      Loading application files...
+                    </td>
+                  </tr>
+                ) : applications.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="py-12 text-center text-muted">
+                      No applications found under current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  applications.map((app) => (
+                    <tr key={app.id} className="hover:bg-slate-50/50 transition-colors">
+                      {/* App No */}
+                      <td className="py-4 px-5">
+                        <div className="font-mono font-bold text-heading">{app.application_no}</div>
+                        <div className="text-[11px] text-muted">
+                          {new Date(app.created_at || Date.now()).toLocaleDateString('en-GB')}
+                        </div>
+                      </td>
+
+                      {/* Student */}
+                      <td className="py-4 px-5">
+                        <div className="font-semibold text-heading">{app.student_name}</div>
+                        <div className="text-xs text-muted flex items-center gap-1.5 mt-0.5">
+                          <GraduationCap className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>{app.class_name || `Class ID: ${app.class_id}`}</span>
+                          <span className="text-slate-300">•</span>
+                          <span className="capitalize">{app.gender}</span>
+                        </div>
+                      </td>
+
+                      {/* Parent */}
+                      <td className="py-4 px-5">
+                        <div className="font-medium text-slate-800">{app.father_name || app.mother_name}</div>
+                        <div className="text-xs text-muted flex items-center gap-1 mt-0.5">
+                          <Phone className="w-3 h-3 text-slate-400" />
+                          <span>{app.father_phone || app.mother_phone}</span>
+                        </div>
+                      </td>
+
+                      {/* Location */}
+                      <td className="py-4 px-5 text-xs text-muted">
+                        <div className="flex items-center gap-1">
+                          <Home className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span className="truncate max-w-[140px]">{app.city ? `${app.city}, ${app.state}` : '—'}</span>
+                        </div>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="py-4 px-5 text-center">{getStatusBadge(app.status)}</td>
+
+                      {/* Actions */}
+                      <td className="py-4 px-5 text-right space-x-1.5 whitespace-nowrap">
+                        {/* View Details */}
+                        <button
+                          onClick={() => setViewDetailsApp(app)}
+                          className="p-1.5 text-muted hover:text-indigo-600 rounded-lg hover:bg-indigo-50 transition-colors"
+                          title="View complete application profile"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+
+                        {/* Stage status transitions: Verify */}
+                        {app.status === 'submitted' && (
+                          <button
+                            onClick={() => handleOpenStatusModal(app, 'verified')}
+                            className="px-2 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                            title="Mark verified"
+                          >
+                            Verify
+                          </button>
+                        )}
+
+                        {/* Stage status transitions: Approve / Reject */}
+                        {app.status === 'verified' && (
+                          <>
+                            <button
+                              onClick={() => handleOpenStatusModal(app, 'approved')}
+                              className="px-2 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                              title="Approve for admission"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleOpenStatusModal(app, 'rejected')}
+                              className="px-2 py-1 text-xs font-semibold rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors"
+                              title="Reject application"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+
+                        {/* Finalize Admission Button (available when approved) */}
+                        {(app.status === 'approved' || app.status === 'verified') && (
+                          <button
+                            onClick={() => handleOpenFinalizeAdmission(app)}
+                            className="inline-flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-colors"
+                            title="Finalize official admission"
+                          >
+                            <UserCheck className="w-3.5 h-3.5" />
+                            <span>Finalize Admission</span>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {/* Status Confirmation Modal */}
       <Modal

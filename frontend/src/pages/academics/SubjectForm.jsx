@@ -12,6 +12,7 @@ import {
   Sliders,
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 const COMMON_SUBJECT_PRESETS = [
   {
@@ -164,6 +165,7 @@ export const SubjectForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const { selectedBranch } = useAuth();
 
   // Dropdown Lookups
   const [boards, setBoards] = useState([]);
@@ -205,31 +207,23 @@ export const SubjectForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
 
-  // Load lookups
+  // Load lookup metadata (boards and streams)
   useEffect(() => {
     const fetchMetadata = async () => {
       try {
-        const [boardsRes, classesRes, streamsRes] = await Promise.all([
+        const [boardsRes, streamsRes] = await Promise.all([
           api.get('/settings/boards').catch(() => ({ boards: [] })),
-          api.get('/academics/classes').catch(() => ({ classes: [] })),
           api.get('/academics/streams').catch(() => ({ streams: [] })),
         ]);
 
         const boardList = boardsRes.boards || boardsRes.data || [];
-        const classList = classesRes.classes || classesRes.data || [];
         const streamList = streamsRes.streams || streamsRes.data || [];
 
         setBoards(boardList);
-        setClasses(classList);
         setStreams(streamList);
 
-        if (!isEdit) {
-          if (boardList.length > 0) {
-            setFormData((prev) => ({ ...prev, board_id: prev.board_id || String(boardList[0].id) }));
-          }
-          if (classList.length > 0) {
-            setFormData((prev) => ({ ...prev, class_id: prev.class_id || String(classList[0].id) }));
-          }
+        if (!isEdit && boardList.length > 0) {
+          setFormData((prev) => ({ ...prev, board_id: prev.board_id || String(boardList[0].id) }));
         }
       } catch (err) {
         console.error('Failed to load metadata lookups:', err);
@@ -240,6 +234,37 @@ export const SubjectForm = () => {
 
     fetchMetadata();
   }, [isEdit]);
+
+  // Load classes filtered by selected branch
+  useEffect(() => {
+    const fetchClasses = async () => {
+      try {
+        const classesUrl =
+          selectedBranch && selectedBranch.id !== 'all'
+            ? `/academics/classes?branch_id=${selectedBranch.id}`
+            : '/academics/classes';
+        const classesRes = await api.get(classesUrl).catch(() => ({ classes: [] }));
+        const classList = classesRes.classes || classesRes.data || [];
+        setClasses(classList);
+
+        if (!isEdit) {
+          setFormData((prev) => {
+            if (prev.class_id && classList.some((c) => String(c.id) === String(prev.class_id))) {
+              return prev;
+            }
+            return {
+              ...prev,
+              class_id: classList.length > 0 ? String(classList[0].id) : '',
+            };
+          });
+        }
+      } catch (err) {
+        console.error('Failed to load classes in SubjectForm:', err);
+      }
+    };
+
+    fetchClasses();
+  }, [selectedBranch, isEdit]);
 
   // Load existing subject if in edit mode
   useEffect(() => {
@@ -530,7 +555,7 @@ export const SubjectForm = () => {
                 <option value="">Select Class</option>
                 {classes.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {c.name} {c.branch_name ? `(${c.branch_name})` : ''}
                   </option>
                 ))}
               </select>

@@ -14,6 +14,6 @@ router.use(verifyToken);
 router.get('/', getClasses);
 router.post('/', requireRoles('super_admin', 'admin'), createClass);
 router.put('/:id', requireRoles('super_admin', 'admin'), updateClass);
-router.delete('/:id', requireRoles('super_admin'), deleteClass);
+router.delete('/:id', requireRoles('super_admin', 'admin'), deleteClass);
 
 export default router;

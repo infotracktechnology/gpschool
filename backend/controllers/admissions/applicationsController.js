@@ -1,5 +1,6 @@
 import { pool, query } from '../../config/database.js';
 import { getNextSequenceNumber } from '../../services/sequenceService.js';
+import { syncAdmissionToStudent } from '../../services/studentSyncService.js';
 
 export const getApplications = async (req, res, next) => {
   try {
@@ -447,6 +448,36 @@ export const finalizeAdmission = async (req, res, next) => {
       `UPDATE applications SET status = 'admitted', updated_at = NOW() WHERE id = ?`,
       [app.id]
     );
+
+    // Sync into students + student_enrollments master tables
+    await syncAdmissionToStudent(conn, {
+      admission_no: admissionNo,
+      student_name: app.student_name,
+      gender: app.gender,
+      dob: app.dob,
+      branch_id: app.branch_id,
+      academic_year_id: app.academic_year_id,
+      class_id: app.class_id,
+      section_id: Number(section_id),
+      roll_no,
+      admission_category,
+      parent_name: app.father_name,
+      primary_phone: app.father_phone,
+      address_street: app.address_street,
+      city: app.city,
+      blood_group: app.blood_group,
+      aadhaar_no: app.aadhaar_no,
+      religion: app.religion,
+      mother_tongue: app.mother_tongue,
+      father_name: app.father_name,
+      father_phone: app.father_phone,
+      father_occupation: app.father_occupation,
+      mother_name: app.mother_name,
+      mother_phone: app.mother_phone,
+      previous_school: app.prev_school_name,
+      emergency_contact_name: emergency_contact_name || app.father_name,
+      emergency_contact_phone: emergency_contact_phone || app.father_phone,
+    });
 
     // If enquiry linked, mark it converted/admitted
     if (app.enquiry_id) {
