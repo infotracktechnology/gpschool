@@ -7,7 +7,7 @@ export const getBranches = async (req, res, next) => {
       SELECT b.id, b.code, b.name, b.board_id, b.phone, b.email, b.address, b.logo, b.city, b.state, b.status,
              b.created_at, bd.name AS board_name, bd.code AS board_code
       FROM branches b
-      JOIN boards bd ON b.board_id = bd.id
+      LEFT JOIN boards bd ON b.board_id = bd.id
       WHERE 1=1
     `;
     const params = [];

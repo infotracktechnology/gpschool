@@ -22,6 +22,13 @@ import {
   X,
   School,
   Settings,
+  FileSpreadsheet,
+  ArrowRightLeft,
+  TrendingUp,
+  FolderKanban,
+  BookMarked,
+  FileBadge,
+  KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -55,6 +62,50 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
       label: 'Admission Reports',
       path: '/admissions/reports',
       icon: BarChart3,
+    },
+  ];
+
+  // Student Management Menu Items
+  const studentItems = [
+    {
+      label: 'Student Directory',
+      path: '/students',
+      icon: Users,
+    },
+    {
+      label: 'Bulk Grid Editor',
+      path: '/students/bulk-edit',
+      icon: FileSpreadsheet,
+    },
+    {
+      label: 'Section Allocation',
+      path: '/students/section-change',
+      icon: ArrowRightLeft,
+    },
+    {
+      label: 'Student Promotion',
+      path: '/students/promotion',
+      icon: TrendingUp,
+    },
+    {
+      label: 'Academic Groups',
+      path: '/students/academic-groups',
+      icon: FolderKanban,
+    },
+    {
+      label: 'Subject Mapping',
+      path: '/students/subject-mapping',
+      icon: BookMarked,
+    },
+    {
+      label: 'TC & Inactive Records',
+      path: '/students/tc',
+      icon: FileBadge,
+    },
+    {
+      label: 'Credential Setup',
+      path: '/students/credentials',
+      icon: KeyRound,
     },
   ];
 
@@ -114,6 +165,7 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
   const isAdmissionActive = admissionItems.some((item) =>
     location.pathname.startsWith(item.path)
   );
+  const isStudentActive = location.pathname.startsWith('/students');
   const isAcademicActive = academicItems.some((item) =>
     location.pathname.startsWith(item.path)
   );
@@ -122,10 +174,15 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
   );
 
   const [admissionOpen, setAdmissionOpen] = useState(isAdmissionActive || false);
+  const [studentOpen, setStudentOpen] = useState(isStudentActive || false);
   const [academicOpen, setAcademicOpen] = useState(isAcademicActive || false);
   const [admissionSettingsOpen, setAdmissionSettingsOpen] = useState(
     isAdmissionSettingsActive || false
   );
+
+  useEffect(() => {
+    if (isStudentActive) setStudentOpen(true);
+  }, [isStudentActive]);
 
   return (
     <>
@@ -232,6 +289,62 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
                                 : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
                             }`
                           }
+                        >
+                          <Icon className="w-3.5 h-3.5 shrink-0" />
+                          <span>{item.label}</span>
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Student Management Dropdown */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setStudentOpen((prev) => !prev)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
+                    isStudentActive
+                      ? 'text-brand-900 bg-brand-50/70 font-semibold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <GraduationCap className="w-4 h-4 shrink-0 text-brand-600" />
+                    <span>Student Management</span>
+                  </div>
+                  {studentOpen ? (
+                    <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
+                  )}
+                </button>
+
+                {studentOpen && (
+                  <div className="mt-1 ml-3 pl-3 border-l-2 border-slate-100 space-y-1">
+                    {studentItems.map((item) => {
+                      const Icon = item.icon;
+                      const isItemActive =
+                        item.path === '/students'
+                          ? location.pathname === '/students' ||
+                            (location.pathname.startsWith('/students/') &&
+                              !studentItems.some(
+                                (si) =>
+                                  si.path !== '/students' &&
+                                  location.pathname.startsWith(si.path)
+                              ))
+                          : location.pathname.startsWith(item.path);
+
+                      return (
+                        <NavLink
+                          key={item.path}
+                          to={item.path}
+                          className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${
+                            isItemActive
+                              ? 'bg-brand-50 text-brand-700 font-semibold border border-brand-200/80 shadow-xs'
+                              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                          }`}
                         >
                           <Icon className="w-3.5 h-3.5 shrink-0" />
                           <span>{item.label}</span>

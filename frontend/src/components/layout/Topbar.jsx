@@ -8,6 +8,7 @@ import {
   Check,
   Star,
   Menu,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -18,15 +19,27 @@ export const Topbar = ({ onToggleSidebar = () => {} }) => {
     academicYears,
     selectedAcademicYear,
     changeAcademicYear,
+    branches,
+    selectedBranch,
+    changeBranch,
   } = useAuth();
+
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Close dropdown on click outside
+  const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
+  const branchDropdownRef = useRef(null);
+
+  const isSuperAdmin = user?.role === 'super_admin';
+
+  // Close dropdowns on click outside
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setDropdownOpen(false);
+      }
+      if (branchDropdownRef.current && !branchDropdownRef.current.contains(e.target)) {
+        setBranchDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -50,7 +63,10 @@ export const Topbar = ({ onToggleSidebar = () => {} }) => {
         <div className="relative" ref={dropdownRef}>
           <button
             type="button"
-            onClick={() => setDropdownOpen(!dropdownOpen)}
+            onClick={() => {
+              setDropdownOpen(!dropdownOpen);
+              setBranchDropdownOpen(false);
+            }}
             className="flex items-center gap-2 bg-brand-50 hover:bg-brand-100/80 text-brand-700 border border-brand-200/90 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             title="Switch Active Session Academic Year"
           >
@@ -133,16 +149,152 @@ export const Topbar = ({ onToggleSidebar = () => {} }) => {
           )}
         </div>
 
-        {/* Branch Context info (hidden on mobile, visible on md+) */}
-        <div className="hidden md:flex items-center gap-2 bg-slate-50 text-slate-700 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-medium">
-          <Building className="w-4 h-4 text-slate-500" />
-          <span className="truncate max-w-[200px]">
-            Branch:{' '}
-            <strong className="text-slate-900 font-semibold">
-              {user?.branch_name || 'All Campuses (Global)'}
-            </strong>
-          </span>
-        </div>
+        {/* Branch Context: Switcher for Super Admin, Clean Badge for Branch Admin */}
+        {isSuperAdmin ? (
+          <div className="relative" ref={branchDropdownRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setBranchDropdownOpen(!branchDropdownOpen);
+                setDropdownOpen(false);
+              }}
+              className="flex items-center gap-2 bg-indigo-50/80 hover:bg-indigo-100/80 text-indigo-700 border border-indigo-200/90 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+              title="Switch Active Campus Branch"
+            >
+              <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                <Building className="w-3.5 h-3.5" />
+              </div>
+              <div className="text-left hidden xs:block sm:block max-w-[140px]">
+                <span className="block text-[10px] text-indigo-600/80 font-medium leading-none">
+                  Campus Branch
+                </span>
+                <span className="font-bold text-indigo-950 text-xs truncate block">
+                  {selectedBranch?.id === 'all'
+                    ? 'All Campuses (Global)'
+                    : selectedBranch?.name || 'Select Branch'}
+                </span>
+              </div>
+              <span className="font-bold text-indigo-950 text-xs xs:hidden sm:hidden truncate max-w-[80px]">
+                {selectedBranch?.id === 'all' ? 'All' : selectedBranch?.code || 'Branch'}
+              </span>
+              <ChevronDown
+                className={`w-3.5 h-3.5 text-indigo-600 transition-transform duration-200 ml-0.5 sm:ml-1 ${
+                  branchDropdownOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {/* Dropdown Menu */}
+            {branchDropdownOpen && (
+              <div className="absolute left-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-border p-2 z-50 animate-scale-up">
+                <div className="px-3 py-2 border-b border-border mb-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900">Switch Campus Branch</span>
+                    <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-medium">
+                      Multi-Campus
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Select a specific branch or view all campuses
+                  </p>
+                </div>
+
+                <div className="space-y-1 max-h-60 overflow-y-auto py-1">
+                  {/* All Campuses (Global) Option */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      changeBranch({ id: 'all', name: 'All Campuses' });
+                      setBranchDropdownOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-left transition-colors ${
+                      selectedBranch?.id === 'all'
+                        ? 'bg-indigo-50 text-indigo-800 font-semibold border border-indigo-200'
+                        : 'hover:bg-slate-50 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <div>
+                        <div className="font-semibold text-xs">All Campuses (Global)</div>
+                        <div className="text-[10px] text-slate-400">Consolidated institutional view</div>
+                      </div>
+                    </div>
+                    {selectedBranch?.id === 'all' && (
+                      <Check className="w-4 h-4 text-indigo-600 shrink-0" />
+                    )}
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100" />
+
+                  {branches.length === 0 ? (
+                    <div className="py-3 text-center text-xs text-slate-500">
+                      No branches found.
+                    </div>
+                  ) : (
+                    branches.map((b) => {
+                      const isSelected = selectedBranch?.id === b.id;
+
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => {
+                            changeBranch(b);
+                            setBranchDropdownOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs text-left transition-colors ${
+                            isSelected
+                              ? 'bg-indigo-50 text-indigo-800 font-semibold border border-indigo-200'
+                              : 'hover:bg-slate-50 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Building className="w-4 h-4 text-slate-400 shrink-0" />
+                            <div className="truncate">
+                              <div className="font-semibold text-xs truncate flex items-center gap-1.5">
+                                <span className="truncate">{b.name}</span>
+                                {b.code && (
+                                  <span className="font-mono text-[10px] bg-slate-100 text-slate-600 px-1 py-0.2 rounded shrink-0">
+                                    {b.code}
+                                  </span>
+                                )}
+                              </div>
+                              {b.city && (
+                                <div className="text-[10px] text-slate-400 truncate">
+                                  {b.city}{b.state ? `, ${b.state}` : ''}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          {isSelected && <Check className="w-4 h-4 text-indigo-600 shrink-0 ml-2" />}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Branch Admin / Staff: Clean Branch Badge */
+          <div className="flex items-center gap-2 bg-slate-50 text-slate-700 border border-slate-200 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-medium shadow-xs">
+            <div className="w-6 h-6 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">
+              <Building className="w-3.5 h-3.5" />
+            </div>
+            <div className="text-left hidden xs:block sm:block max-w-[160px]">
+              <span className="block text-[10px] text-slate-500 font-medium leading-none">
+                Branch
+              </span>
+              <span className="font-semibold text-slate-900 text-xs truncate block">
+                {user?.branch_name || selectedBranch?.name || 'Assigned Branch'}
+              </span>
+            </div>
+            <span className="font-semibold text-slate-900 text-xs xs:hidden sm:hidden truncate max-w-[80px]">
+              {user?.branch_name || selectedBranch?.name || 'Branch'}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Right User Actions */}

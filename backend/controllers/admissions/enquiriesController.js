@@ -1,5 +1,6 @@
 import { pool, query } from '../../config/database.js';
 import { getNextSequenceNumber } from '../../services/sequenceService.js';
+import { syncAdmissionToStudent } from '../../services/studentSyncService.js';
 
 export const getEnquiries = async (req, res, next) => {
   try {
@@ -654,6 +655,26 @@ export const directAdmission = async (req, res, next) => {
       `UPDATE enquiries SET stage = 'admitted', status = 'converted', updated_at = NOW() WHERE id = ?`,
       [enq.id]
     );
+
+    // Sync into students + student_enrollments master tables
+    await syncAdmissionToStudent(conn, {
+      admission_no: admissionNo,
+      student_name: enq.student_name,
+      gender: enq.gender,
+      dob: studentDob,
+      branch_id: enq.branch_id,
+      academic_year_id: enq.academic_year_id,
+      class_id: enq.class_id,
+      section_id: Number(section_id),
+      roll_no,
+      admission_category,
+      parent_name: enq.parent_name,
+      primary_phone: enq.primary_phone,
+      address_street,
+      city,
+      emergency_contact_name: emergency_contact_name || enq.parent_name,
+      emergency_contact_phone: emergency_contact_phone || enq.primary_phone,
+    });
 
     // Followup log
     await conn.query(

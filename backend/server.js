@@ -42,7 +42,7 @@ app.use(errorHandler);
 
 // Initialize DB and start server
 initDatabase().then(() => {
-  app.listen(PORT, '0.0.0.0', () => {
+  app.listen(PORT, () => {
     console.log(`[Backend] School ERP Express Server running on http://localhost:${PORT}`);
   });
 });

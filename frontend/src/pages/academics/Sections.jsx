@@ -15,8 +15,10 @@ import {
 import { api } from '../../api/client';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
+import { useAuth } from '../../context/AuthContext';
 
 export const Sections = () => {
+  const { selectedBranch } = useAuth();
   const [branches, setBranches] = useState([]);
   const [classes, setClasses] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState('');
@@ -37,37 +39,68 @@ export const Sections = () => {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(null);
 
-  // Fetch initial lookups: branches and classes
+  // Sync selectedBranch from AuthContext if a specific branch is selected
   useEffect(() => {
-    const fetchLookups = async () => {
+    if (selectedBranch && selectedBranch.id !== 'all') {
+      setSelectedBranchId(String(selectedBranch.id));
+    }
+  }, [selectedBranch]);
+
+  // Fetch initial branches lookup
+  useEffect(() => {
+    const fetchBranches = async () => {
       setLoadingLookups(true);
       try {
-        const [branchRes, classRes] = await Promise.all([
-          api.get('/settings/branches'),
-          api.get('/academics/classes'),
-        ]);
-
+        const branchRes = await api.get('/settings/branches');
         const branchList = branchRes.branches || branchRes.data || [];
-        const classList = classRes.classes || classRes.data || [];
-
         setBranches(branchList);
-        setClasses(classList);
 
         if (branchList.length > 0) {
-          setSelectedBranchId((prev) => prev || String(branchList[0].id));
-        }
-        if (classList.length > 0) {
-          setSelectedClassId((prev) => prev || String(classList[0].id));
+          setSelectedBranchId((prev) => {
+            if (prev) return prev;
+            if (selectedBranch && selectedBranch.id !== 'all') {
+              return String(selectedBranch.id);
+            }
+            return String(branchList[0].id);
+          });
         }
       } catch (err) {
-        console.error('Failed to load branches/classes:', err);
+        console.error('Failed to load branches:', err);
       } finally {
         setLoadingLookups(false);
       }
     };
 
-    fetchLookups();
-  }, []);
+    fetchBranches();
+  }, [selectedBranch]);
+
+  // Fetch classes filtered by branch_id whenever selectedBranchId changes
+  useEffect(() => {
+    if (!selectedBranchId) {
+      setClasses([]);
+      return;
+    }
+
+    const fetchClassesForBranch = async () => {
+      try {
+        const classRes = await api.get(`/academics/classes?branch_id=${selectedBranchId}`);
+        const classList = classRes.classes || classRes.data || [];
+        setClasses(classList);
+
+        // Keep current selected class if it belongs to this branch's classes, otherwise default to first class
+        setSelectedClassId((prev) => {
+          if (prev && classList.some((c) => String(c.id) === String(prev))) {
+            return prev;
+          }
+          return classList.length > 0 ? String(classList[0].id) : '';
+        });
+      } catch (err) {
+        console.error('Failed to load classes for branch:', err);
+      }
+    };
+
+    fetchClassesForBranch();
+  }, [selectedBranchId]);
 
   // Fetch sections based on branch and class
   const fetchSections = useCallback(async () => {
