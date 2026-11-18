@@ -213,7 +213,7 @@ export const Login = () => {
             </p>
           </div>
 
-          {/* 1-CLICK DEMO PROFILE SELECTOR */}
+          {/* 1-CLICK DEMO PROFILE SELECTOR 
           <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
             <div className="flex items-center justify-between text-[11px]">
               <span className="font-semibold text-slate-700 flex items-center gap-1.5">
@@ -246,7 +246,7 @@ export const Login = () => {
                 );
               })}
             </div>
-          </div>
+          </div>*/}
 
           {/* Error Message Toast */}
           {error && (
