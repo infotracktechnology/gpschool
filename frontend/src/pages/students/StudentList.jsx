@@ -50,6 +50,7 @@ export const StudentList = () => {
     setSelectedSectionId,
   } = useAuth();
 
+  
   const selectedBranchId =
     selectedBranch && selectedBranch.id !== 'all' ? String(selectedBranch.id) : '';
   const selectedAcademicYearId = selectedAcademicYear
