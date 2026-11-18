@@ -16,6 +16,7 @@ import { Classes } from './pages/academics/Classes';
 import { Sections } from './pages/academics/Sections';
 import { SubjectList } from './pages/academics/SubjectList';
 import { SubjectForm } from './pages/academics/SubjectForm';
+import { AcademicCalendarView } from './pages/AcademicCalendar';
 
 // Admission Management Pages
 import { EnquiryList } from './pages/admissions/EnquiryList';
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="users/:id/edit" element={<UserForm />} />
 
             {/* Academic Structure & Subjects Module */}
+            <Route path="academics/calendar" element={<AcademicCalendarView />} />
             <Route path="academics/classes" element={<Classes />} />
             <Route path="academics/sections" element={<Sections />} />
             <Route path="academics/subjects" element={<SubjectList />} />

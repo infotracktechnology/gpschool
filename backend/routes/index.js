@@ -10,7 +10,7 @@ import streamsRoutes from './streamsRoutes.js';
 import sectionsRoutes from './sectionsRoutes.js';
 import subjectsRoutes from './subjectsRoutes.js';
 import admissionsRoutes from './admissionsRoutes.js';
-import studentsRoutes from './studentsRoutes.js';
+import calendarRoutes from './calendarRoutes.js';
 
 const router = Router();
 
@@ -30,8 +30,8 @@ router.use('/academics/subjects', subjectsRoutes);
 
 // Admissions Module
 router.use('/admissions', admissionsRoutes);
-
-// Students Module
-router.use('/students', studentsRoutes);
+router.use('/calendar', calendarRoutes);
+// // Students Module
+// router.use('/students', studentsRoutes);
 
 export default router;
