@@ -355,9 +355,21 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
                 )}
               </div>
 
-      
+              {/* Academic Calendar - Standalone Menu */}
+                <NavLink
+                  to="/academics/calendar"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      isActive
+                        ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/20 font-semibold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    }`
+                  }
+                >
+                  <Calendar className="w-4 h-4 shrink-0 text-orange-600" />
+                  <span>Academic Calendar</span>
+                </NavLink>
               
-
               {/* User Management */}
               <NavLink
                 to="/users"
