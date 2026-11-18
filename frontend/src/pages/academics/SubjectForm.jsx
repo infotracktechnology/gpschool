@@ -606,11 +606,10 @@ export const SubjectForm = () => {
 
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Subject Code <span className="text-rose-500">*</span>
+                Subject Code 
               </label>
               <input
                 type="text"
-                required
                 placeholder="e.g. MATH, ENG-01, SCI-10"
                 value={formData.code}
                 onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
