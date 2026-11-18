@@ -5,7 +5,7 @@ export const getUsers = async (req, res, next) => {
   try {
     const { role, branch_id, status } = req.query;
     let sql = `
-      SELECT u.id, u.name, u.email, u.role, u.branch_id, u.phone, u.status, u.created_at,
+      SELECT u.id, u.name, u.username, u.username AS email, u.role, u.branch_id, u.phone, u.status, u.created_at,
              b.name AS branch_name, b.code AS branch_code
       FROM users u
       LEFT JOIN branches b ON u.branch_id = b.id
@@ -43,10 +43,11 @@ export const getUsers = async (req, res, next) => {
 
 export const createUser = async (req, res, next) => {
   try {
-    const { name, email, password, role = 'admin', branch_id, phone } = req.body;
+    const { name, username, email, password, role = 'admin', branch_id, phone } = req.body;
+    const loginUsername = (username || email || '').trim();
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: 'Name, email, and password are required' });
+    if (!name || !loginUsername || !password) {
+      return res.status(400).json({ message: 'Name, username/email, and password are required' });
     }
 
     // Role check: Only super_admin can create super_admin
@@ -58,11 +59,11 @@ export const createUser = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const result = await query(
-      `INSERT INTO users (name, email, password, role, branch_id, phone, status)
+      `INSERT INTO users (name, username, password, role, branch_id, phone, status)
        VALUES (?, ?, ?, ?, ?, ?, 'active')`,
       [
         name.trim(),
-        email.trim().toLowerCase(),
+        loginUsername.toLowerCase(),
         hashedPassword,
         role,
         branch_id ? Number(branch_id) : null,

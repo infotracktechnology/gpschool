@@ -315,34 +315,88 @@ export const saveSubjectMappings = async (req, res, next) => {
 
     let count = 0;
     for (const item of mappings) {
+      // Format A: { student_id, subject_ids: [...] }
+      if (item.student_id && Array.isArray(item.subject_ids)) {
+        let enrollmentId = item.enrollment_id;
+        if (!enrollmentId) {
+          const [enrRows] = await conn.query(
+            `SELECT id FROM student_enrollments WHERE student_id = ? ORDER BY id DESC LIMIT 1`,
+            [item.student_id]
+          );
+          if (enrRows.length > 0) {
+            enrollmentId = enrRows[0].id;
+          }
+        }
+
+        if (!enrollmentId) continue;
+
+        const targetSubjectIds = item.subject_ids.map(Number).filter(Boolean);
+
+        // Remove subjects no longer assigned
+        if (targetSubjectIds.length > 0) {
+          await conn.query(
+            `DELETE FROM student_subject_mappings 
+             WHERE enrollment_id = ? AND subject_id NOT IN (?)`,
+            [enrollmentId, targetSubjectIds]
+          );
+        } else {
+          await conn.query(
+            `DELETE FROM student_subject_mappings WHERE enrollment_id = ?`,
+            [enrollmentId]
+          );
+        }
+
+        // Insert new subjects
+        for (const subId of targetSubjectIds) {
+          await conn.query(
+            `INSERT INTO student_subject_mappings (student_id, enrollment_id, subject_id, is_elective, status)
+             VALUES (?, ?, ?, 1, 'active')
+             ON DUPLICATE KEY UPDATE status = 'active', updated_at = NOW()`,
+            [item.student_id, enrollmentId, subId]
+          );
+          count++;
+        }
+        continue;
+      }
+
+      // Format B: Individual mapping item { enrollment_id, student_id, subject_id, is_elective, status }
       const { enrollment_id, student_id, subject_id, is_elective = false, status = 'active' } = item;
 
-      if (!enrollment_id || !subject_id) continue;
-
+      let resolvedEnrollmentId = enrollment_id;
       let resolvedStudentId = student_id;
-      if (!resolvedStudentId) {
-        const [enrRows] = await conn.query('SELECT student_id FROM student_enrollments WHERE id = ?', [
-          enrollment_id,
-        ]);
+
+      if (!resolvedEnrollmentId && resolvedStudentId) {
+        const [enrRows] = await conn.query(
+          `SELECT id FROM student_enrollments WHERE student_id = ? ORDER BY id DESC LIMIT 1`,
+          [resolvedStudentId]
+        );
+        if (enrRows.length > 0) {
+          resolvedEnrollmentId = enrRows[0].id;
+        }
+      } else if (!resolvedStudentId && resolvedEnrollmentId) {
+        const [enrRows] = await conn.query(
+          'SELECT student_id FROM student_enrollments WHERE id = ?',
+          [resolvedEnrollmentId]
+        );
         if (enrRows.length > 0) {
           resolvedStudentId = enrRows[0].student_id;
         }
       }
 
-      if (!resolvedStudentId) continue;
+      if (!resolvedEnrollmentId || !subject_id || !resolvedStudentId) continue;
 
       if (status === 'dropped') {
         await conn.query(
           `DELETE FROM student_subject_mappings 
            WHERE enrollment_id = ? AND subject_id = ?`,
-          [enrollment_id, subject_id]
+          [resolvedEnrollmentId, subject_id]
         );
       } else {
         await conn.query(
           `INSERT INTO student_subject_mappings (student_id, enrollment_id, subject_id, is_elective, status)
            VALUES (?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE is_elective = VALUES(is_elective), status = VALUES(status), updated_at = NOW()`,
-          [resolvedStudentId, enrollment_id, subject_id, is_elective ? 1 : 0, status]
+          [resolvedStudentId, resolvedEnrollmentId, subject_id, is_elective ? 1 : 0, status]
         );
       }
       count++;

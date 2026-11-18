@@ -206,12 +206,23 @@ export const getStudentById = async (req, res, next) => {
     );
 
     // Fetch linked user account if any
-    const [users] = await pool.query(
-      `SELECT id, name, email, role, phone, status
-       FROM users 
-       WHERE email = ? OR phone = ?`,
-      [student.father_email || `${student.admission_no.toLowerCase()}@school.erp`, student.father_phone || '']
-    );
+    let linkedUser = null;
+    try {
+      const [users] = await pool.query(
+        `SELECT id, name, username, role, phone, status
+         FROM users 
+         WHERE username = ? OR username = ? OR phone = ?`,
+        [student.admission_no, student.father_email || '', student.father_phone || '']
+      );
+      if (users.length > 0) {
+        linkedUser = {
+          ...users[0],
+          email: users[0].username,
+        };
+      }
+    } catch (_uErr) {
+      // Non-fatal if users table has no matching row
+    }
 
     res.json({
       student,
@@ -219,7 +230,7 @@ export const getStudentById = async (req, res, next) => {
       enrollments,
       subjects,
       transfer_certificates: tcs,
-      user_account: users[0] || null,
+      user_account: linkedUser,
     });
   } catch (error) {
     next(error);
@@ -409,6 +420,41 @@ export const createStudent = async (req, res, next) => {
       );
     } catch (_admErr) {
       // Non-fatal if admissions has duplicate or constraint
+    }
+
+    // Auto-create student portal credentials in users table:
+    // Username = admission_no, Password = DOB in DDMMYYYY format, Plain-text ("password hash vendam")
+    let studentPassword = 'Student@123';
+    if (dob) {
+      const dobStr = typeof dob === 'string' ? dob.split('T')[0] : new Date(dob).toISOString().split('T')[0];
+      const parts = dobStr.split('-');
+      if (parts.length === 3) {
+        studentPassword = `${parts[2]}${parts[1]}${parts[0]}`; // DDMMYYYY
+      }
+    } else if (finalAdmissionNo) {
+      studentPassword = finalAdmissionNo.replace(/[^a-zA-Z0-9]/g, '');
+    }
+
+    try {
+      await conn.query(
+        `INSERT INTO users (name, username, password, role, branch_id, phone, status)
+         VALUES (?, ?, ?, 'student', ?, ?, 'active')
+         ON DUPLICATE KEY UPDATE
+           name = VALUES(name),
+           password = VALUES(password),
+           branch_id = VALUES(branch_id),
+           phone = VALUES(phone),
+           status = 'active'`,
+        [
+          student_name.trim(),
+          finalAdmissionNo,
+          studentPassword,
+          Number(effectiveBranchId),
+          father_phone || guardian_phone || null,
+        ]
+      );
+    } catch (_userErr) {
+      console.error('Failed to auto-create user account for student:', _userErr);
     }
 
     await conn.commit();
@@ -640,22 +686,31 @@ export const bulkUpdateStudents = async (req, res, next) => {
           caste_category = COALESCE(?, caste_category),
           nationality = COALESCE(?, nationality),
           mother_tongue = COALESCE(?, mother_tongue),
+          medical_notes = COALESCE(?, medical_notes),
           father_name = COALESCE(?, father_name),
           father_phone = COALESCE(?, father_phone),
           father_email = COALESCE(?, father_email),
+          father_occupation = COALESCE(?, father_occupation),
           mother_name = COALESCE(?, mother_name),
           mother_phone = COALESCE(?, mother_phone),
+          mother_email = COALESCE(?, mother_email),
+          mother_occupation = COALESCE(?, mother_occupation),
           guardian_name = COALESCE(?, guardian_name),
           guardian_phone = COALESCE(?, guardian_phone),
           street_address = COALESCE(?, street_address),
           city = COALESCE(?, city),
           state = COALESCE(?, state),
           pincode = COALESCE(?, pincode),
+          bus_stop = COALESCE(?, bus_stop),
           emergency_contact_phone = COALESCE(?, emergency_contact_phone),
           previous_school = COALESCE(?, previous_school),
           previous_class = COALESCE(?, previous_class),
           previous_board = COALESCE(?, previous_board),
           previous_tc_no = COALESCE(?, previous_tc_no),
+          previous_tc_date = COALESCE(?, previous_tc_date),
+          previous_school_address = COALESCE(?, previous_school_address),
+          previous_result = COALESCE(?, previous_result),
+          previous_reason_for_leaving = COALESCE(?, previous_reason_for_leaving),
           status = COALESCE(?, status),
           updated_at = NOW()
          WHERE id = ?`,
@@ -669,22 +724,31 @@ export const bulkUpdateStudents = async (req, res, next) => {
           item.caste_category || null,
           item.nationality || null,
           item.mother_tongue || null,
+          item.medical_notes || null,
           item.father_name || null,
           item.father_phone || item.phone || item.primary_phone || null,
           item.father_email || null,
+          item.father_occupation || null,
           item.mother_name || null,
           item.mother_phone || null,
+          item.mother_email || null,
+          item.mother_occupation || null,
           item.guardian_name || null,
           item.guardian_phone || null,
           item.street_address || null,
           item.city || null,
           item.state || null,
           item.pincode || null,
+          item.bus_stop || null,
           item.emergency_contact_phone || null,
           item.previous_school || null,
           item.previous_class || null,
           item.previous_board || null,
           item.previous_tc_no || null,
+          item.previous_tc_date || null,
+          item.previous_school_address || null,
+          item.previous_result || null,
+          item.previous_reason_for_leaving || null,
           item.status || null,
           studentId,
         ]

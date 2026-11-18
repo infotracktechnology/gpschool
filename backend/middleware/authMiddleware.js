@@ -12,7 +12,7 @@ export const verifyToken = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'school_erp_jwt_secret_key_2026_xyz');
 
     const users = await query(
-      `SELECT u.id, u.name, u.email, u.role, u.branch_id, u.phone, u.status, b.name AS branch_name
+      `SELECT u.id, u.name, u.username, u.role, u.branch_id, u.phone, u.status, b.name AS branch_name
        FROM users u
        LEFT JOIN branches b ON u.branch_id = b.id
        WHERE u.id = ?`,
@@ -24,6 +24,7 @@ export const verifyToken = async (req, res, next) => {
     }
 
     const user = users[0];
+    user.email = user.username; // Backward compatibility alias
     if (user.status !== 'active') {
       return res.status(403).json({ message: 'User account is inactive. Please contact administrator.' });
     }

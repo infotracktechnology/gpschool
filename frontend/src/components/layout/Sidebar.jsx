@@ -29,6 +29,11 @@ import {
   BookMarked,
   FileBadge,
   KeyRound,
+  Clock,
+  CalendarCheck,
+  History,
+  BarChart2,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -109,6 +114,25 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
     },
   ];
 
+  // Attendance Module Menu Items
+  const attendanceItems = [
+    {
+      label: 'Take Attendance',
+      path: '/attendance/take',
+      icon: ClipboardCheck,
+    },
+    {
+      label: 'Attendance History',
+      path: '/attendance/history',
+      icon: History,
+    },
+    {
+      label: 'Monthly Report',
+      path: '/attendance/monthly-report',
+      icon: BarChart2,
+    },
+  ];
+
   // Academic Settings Items
   const academicItems = [
     {
@@ -125,6 +149,11 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
       label: 'Branch Year Mappings',
       path: '/settings/branch-year-mappings',
       icon: CalendarRange,
+    },
+    {
+      label: 'Attendance Timings',
+      path: '/settings/attendance-timings',
+      icon: Clock,
     },
     {
       label: 'Classes Master',
@@ -166,6 +195,9 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
     location.pathname.startsWith(item.path)
   );
   const isStudentActive = location.pathname.startsWith('/students');
+  const isAttendanceActive = attendanceItems.some((item) =>
+    location.pathname.startsWith(item.path)
+  );
   const isAcademicActive = academicItems.some((item) =>
     location.pathname.startsWith(item.path)
   );
@@ -175,6 +207,7 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
 
   const [admissionOpen, setAdmissionOpen] = useState(isAdmissionActive || false);
   const [studentOpen, setStudentOpen] = useState(isStudentActive || false);
+  const [attendanceOpen, setAttendanceOpen] = useState(isAttendanceActive || false);
   const [academicOpen, setAcademicOpen] = useState(isAcademicActive || false);
   const [admissionSettingsOpen, setAdmissionSettingsOpen] = useState(
     isAdmissionSettingsActive || false
@@ -183,6 +216,10 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
   useEffect(() => {
     if (isStudentActive) setStudentOpen(true);
   }, [isStudentActive]);
+
+  useEffect(() => {
+    if (isAttendanceActive) setAttendanceOpen(true);
+  }, [isAttendanceActive]);
 
   return (
     <>
@@ -354,6 +391,54 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
                   </div>
                 )}
               </div>
+
+              {/* Attendance Management Dropdown */}
+              {(!user?.role || ['super_admin', 'admin', 'principal', 'teacher'].includes(user?.role)) && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setAttendanceOpen((prev) => !prev)}
+                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
+                      isAttendanceActive
+                        ? 'text-brand-900 bg-brand-50/70 font-semibold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <CalendarCheck className="w-4 h-4 shrink-0 text-emerald-600" />
+                      <span>Attendance</span>
+                    </div>
+                    {attendanceOpen ? (
+                      <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
+                    )}
+                  </button>
+
+                  {attendanceOpen && (
+                    <div className="mt-1 ml-3 pl-3 border-l-2 border-slate-100 space-y-1">
+                      {attendanceItems.map((item) => {
+                        const Icon = item.icon;
+                        const isItemActive = location.pathname.startsWith(item.path);
+                        return (
+                          <NavLink
+                            key={item.path}
+                            to={item.path}
+                            className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${
+                              isItemActive
+                                ? 'bg-brand-50 text-brand-700 font-semibold border border-brand-200/80 shadow-xs'
+                                : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                            }`}
+                          >
+                            <Icon className="w-3.5 h-3.5 shrink-0" />
+                            <span>{item.label}</span>
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Academic Calendar - Standalone Menu */}
                 <NavLink

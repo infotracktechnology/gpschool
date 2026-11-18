@@ -18,7 +18,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 
 export const Login = () => {
-  const [email, setEmail] = useState('admin@schoolerp.com');
+  const [username, setUsername] = useState('admin@schoolerp.com');
   const [password, setPassword] = useState('Admin@123');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -36,33 +36,38 @@ export const Login = () => {
       label: 'Super Admin',
       badge: 'All Campuses',
       desc: 'Full Enterprise Access',
-      email: 'admin@schoolerp.com',
+      username: 'admin@schoolerp.com',
       pass: 'Admin@123',
-      color: 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300',
     },
     {
       id: 'principal',
       label: 'School Principal',
       badge: 'Green Park School',
       desc: 'Academic & Campus Head',
-      email: 'principal@schoolerp.com',
+      username: 'principal@schoolerp.com',
       pass: 'Admin@123',
-      color: 'border-blue-500/50 bg-blue-500/10 text-blue-300',
     },
     {
       id: 'branch_admin',
       label: 'Campus Admin',
       badge: 'Central Branch',
       desc: 'Operations & Admissions',
-      email: 'campus@schoolerp.com',
+      username: 'campus@schoolerp.com',
       pass: 'Admin@123',
-      color: 'border-purple-500/50 bg-purple-500/10 text-purple-300',
+    },
+    {
+      id: 'student',
+      label: 'Student Portal',
+      badge: 'GPS/2026/001',
+      desc: 'Student / Parent Dossier',
+      username: 'GPS/2026/001',
+      pass: '13052019',
     },
   ];
 
   const handleSelectDemo = (role) => {
     setSelectedDemoRole(role.id);
-    setEmail(role.email);
+    setUsername(role.username);
     setPassword(role.pass);
     setError('');
   };
@@ -73,7 +78,7 @@ export const Login = () => {
     setIsSubmitting(true);
 
     try {
-      await login(email, password);
+      await login(username, password);
       navigate('/');
     } catch (err) {
       setError(err.message || 'Login failed. Please verify your institutional credentials.');
@@ -121,11 +126,7 @@ export const Login = () => {
 
         {/* Center Hero Content */}
         <div className="relative z-10 my-auto py-8 max-w-xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/80 text-emerald-400 text-xs font-semibold mb-6 shadow-sm">
-            <Sparkles className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
-            <span>Academic Session 2026-2027 Live</span>
-          </div>
-
+         
           <h1 className="text-3xl xl:text-4xl font-extrabold text-white tracking-tight leading-tight">
             Empowering Modern Schools with{' '}
             <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400 bg-clip-text text-transparent">
@@ -212,7 +213,7 @@ export const Login = () => {
             </p>
           </div>
 
-          {/* 1-CLICK DEMO ROLE SELECTOR (Impressive Client UX) */}
+          {/* 1-CLICK DEMO PROFILE SELECTOR */}
           <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
             <div className="flex items-center justify-between text-[11px]">
               <span className="font-semibold text-slate-700 flex items-center gap-1.5">
@@ -222,7 +223,7 @@ export const Login = () => {
               <span className="text-[10px] text-slate-400">Auto-fills credentials</span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {demoRoles.map((role) => {
                 const isSelected = selectedDemoRole === role.id;
                 return (
@@ -259,20 +260,20 @@ export const Login = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                Institutional Email Address <span className="text-rose-500">*</span>
+                Username / Institutional ID <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
+                  value={username}
                   onChange={(e) => {
-                    setEmail(e.target.value);
+                    setUsername(e.target.value);
                     setSelectedDemoRole('');
                   }}
-                  placeholder="admin@schoolerp.com"
-                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all text-slate-900"
+                  placeholder="e.g. admin@schoolerp.com or GPS/2026/001"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all text-slate-900 font-mono"
                 />
               </div>
             </div>

@@ -48,9 +48,11 @@ export const SubjectMapping = () => {
   const [filterElectivesOnly, setFilterElectivesOnly] = useState(false);
 
   // Selection & Mapping State
-  // selectedStudentIds: Set of student IDs selected for bulk group assignment
+  // selectedStudentIds: Set of student IDs selected for bulk assignment
   const [selectedStudentIds, setSelectedStudentIds] = useState(new Set());
-  // bulkGroupId: ID of group selected in bulk toolbar
+  // bulkSubjectId: ID of subject selected in bulk toolbar
+  const [bulkSubjectId, setBulkSubjectId] = useState('');
+  // bulkGroupId: Optional ID of group selected in template toolbar
   const [bulkGroupId, setBulkGroupId] = useState('');
 
   // studentMappings: { [studentId]: { subjectIds: number[], academicGroupId: number|null, isModified: boolean } }
@@ -343,7 +345,56 @@ export const SubjectMapping = () => {
     }
   };
 
-  // Section A: Assign Bulk Academic Group to Selected Students
+  // Section A: Direct Subject Bulk Allocation ("sub thaniya map pannum")
+  const handleAssignBulkSubject = () => {
+    const targetSubId = Number(bulkSubjectId);
+    if (!targetSubId || selectedStudentIds.size === 0) return;
+
+    const sub = availableSubjects.find(s => s.id === targetSubId);
+    setStudentMappings(prev => {
+      const updated = { ...prev };
+      selectedStudentIds.forEach(stId => {
+        const current = updated[stId] || { subjectIds: [], academicGroupId: null };
+        if (!current.subjectIds.includes(targetSubId)) {
+          updated[stId] = {
+            ...current,
+            subjectIds: [...current.subjectIds, targetSubId],
+          };
+        }
+      });
+      return updated;
+    });
+
+    setMessage({
+      type: 'success',
+      text: `Successfully assigned "${sub?.name || 'Subject'}" to ${selectedStudentIds.size} student(s). Review and click Save.`,
+    });
+  };
+
+  const handleRemoveBulkSubject = () => {
+    const targetSubId = Number(bulkSubjectId);
+    if (!targetSubId || selectedStudentIds.size === 0) return;
+
+    const sub = availableSubjects.find(s => s.id === targetSubId);
+    setStudentMappings(prev => {
+      const updated = { ...prev };
+      selectedStudentIds.forEach(stId => {
+        const current = updated[stId] || { subjectIds: [], academicGroupId: null };
+        updated[stId] = {
+          ...current,
+          subjectIds: current.subjectIds.filter(id => id !== targetSubId),
+        };
+      });
+      return updated;
+    });
+
+    setMessage({
+      type: 'info',
+      text: `Removed "${sub?.name || 'Subject'}" from ${selectedStudentIds.size} student(s).`,
+    });
+  };
+
+  // Optional: Apply Academic Group Template
   const handleAssignBulkGroup = () => {
     if (!bulkGroupId || selectedStudentIds.size === 0) return;
 
@@ -637,28 +688,28 @@ export const SubjectMapping = () => {
         </div>
       </div>
 
-      {/* Section A: Bulk Group Assignment Toolbar */}
-      <div className="bg-gradient-to-r from-brand-50/70 via-indigo-50/40 to-slate-50 border border-brand-200/80 rounded-2xl p-4 shadow-xs">
+      {/* Section A: Direct Subject Batch Action Toolbar ("sub thaniya map pannum") */}
+      <div className="bg-gradient-to-r from-brand-50/70 via-teal-50/40 to-slate-50 border border-brand-200/80 rounded-2xl p-4 shadow-xs">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-brand-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <Layers className="w-5 h-5" />
+              <BookOpen className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-heading flex items-center gap-2">
-                Section A: Bulk Academic Group Assignment
-                <span className="text-xs font-normal text-muted">
-                  (Fast track batch enrollment)
+                Section A: Direct Subject Mapping & Batch Actions
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">
+                  Independent of Academic Groups
                 </span>
               </h2>
               <p className="text-xs text-slate-600">
                 {selectedStudentIds.size === 0 ? (
                   <span>
-                    Select students using row checkboxes below to map an entire academic track at once.
+                    Select students using table checkboxes to assign or unassign specific subjects in batch, or toggle individual subjects directly in the matrix below.
                   </span>
                 ) : (
                   <span className="font-semibold text-brand-700">
-                    {selectedStudentIds.size} student(s) selected for bulk assignment.
+                    {selectedStudentIds.size} student(s) selected for direct subject assignment.
                   </span>
                 )}
               </p>
@@ -666,39 +717,50 @@ export const SubjectMapping = () => {
           </div>
 
           <div className="flex items-center flex-wrap gap-2.5">
-            {/* Group selector */}
+            {/* Direct Subject selector */}
             <select
-              value={bulkGroupId}
-              onChange={(e) => setBulkGroupId(e.target.value)}
+              value={bulkSubjectId}
+              onChange={(e) => setBulkSubjectId(e.target.value)}
               className="px-3 py-2 text-xs rounded-xl border border-brand-200 bg-white text-heading focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-medium min-w-[210px]"
             >
-              <option value="">-- Choose Academic Group --</option>
-              {academicGroups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.code ? `[${g.code}] ` : ''}{g.name}
+              <option value="">-- Pick Subject to Assign / Remove --</option>
+              {availableSubjects.map((s) => (
+                <option key={s.id} value={s.id}>
+                  [{s.code || 'SUB'}] {s.name}
                 </option>
               ))}
             </select>
 
-            {/* Assign Group Button */}
+            {/* Assign Subject Button */}
             <button
-              onClick={handleAssignBulkGroup}
-              disabled={selectedStudentIds.size === 0 || !bulkGroupId}
+              onClick={handleAssignBulkSubject}
+              disabled={selectedStudentIds.size === 0 || !bulkSubjectId}
               className="inline-flex items-center gap-1.5 px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:opacity-40 disabled:hover:bg-brand-600 text-white rounded-xl text-xs font-semibold shadow-xs transition-all active:scale-95"
             >
               <Check className="w-4 h-4" />
-              Assign Group ({selectedStudentIds.size})
+              Assign Subject ({selectedStudentIds.size})
             </button>
 
-            {/* Clear Group Button */}
+            {/* Remove Subject Button */}
+            <button
+              onClick={handleRemoveBulkSubject}
+              disabled={selectedStudentIds.size === 0 || !bulkSubjectId}
+              className="inline-flex items-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 text-white rounded-xl text-xs font-semibold shadow-xs transition-all active:scale-95"
+              title="Remove this subject from selected students"
+            >
+              <X className="w-4 h-4" />
+              Remove Subject ({selectedStudentIds.size})
+            </button>
+
+            {/* Clear All Subjects Button */}
             <button
               onClick={handleClearSelectedMappings}
               disabled={selectedStudentIds.size === 0}
               className="inline-flex items-center gap-1 px-3 py-2 text-xs font-medium text-slate-600 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 rounded-xl transition-colors disabled:opacity-30"
-              title="Clear group and subjects for selected students"
+              title="Clear all subjects for selected students"
             >
               <X className="w-3.5 h-3.5" />
-              Clear
+              Clear All
             </button>
           </div>
         </div>

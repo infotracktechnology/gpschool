@@ -11,6 +11,9 @@ import sectionsRoutes from './sectionsRoutes.js';
 import subjectsRoutes from './subjectsRoutes.js';
 import admissionsRoutes from './admissionsRoutes.js';
 import calendarRoutes from './calendarRoutes.js';
+import staffProfileRoutes from './staffProfileRoutes.js';
+import attendanceRoutes from './attendanceRoutes.js';
+import studentsRoutes from './studentsRoutes.js';
 
 const router = Router();
 
@@ -20,18 +23,28 @@ router.use('/settings/boards', boardRoutes);
 router.use('/settings/branches', branchRoutes);
 router.use('/branches', branchRoutes); // Alias for top-level access
 router.use('/settings/academic-years', academicYearRoutes);
+router.use('/academic-years', academicYearRoutes); // Alias for top-level access
 router.use('/settings/branch-academic-years', branchAcademicYearRoutes);
 
 // Academic Structure & Subjects Module
 router.use('/academics/classes', classesRoutes);
+router.use('/classes', classesRoutes); // Alias for top-level access
 router.use('/academics/streams', streamsRoutes);
 router.use('/academics/sections', sectionsRoutes);
+router.use('/sections', sectionsRoutes); // Alias for top-level access
 router.use('/academics/subjects', subjectsRoutes);
 
 // Admissions Module
 router.use('/admissions', admissionsRoutes);
 router.use('/calendar', calendarRoutes);
-// // Students Module
-// router.use('/students', studentsRoutes);
+
+// Staff Module
+router.use('/staff-profiles', staffProfileRoutes);
+
+// Attendance Module
+router.use('/attendance', attendanceRoutes);
+
+// Students Module
+router.use('/students', studentsRoutes);
 
 export default router;

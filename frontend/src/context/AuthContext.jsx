@@ -290,8 +290,12 @@ export const AuthProvider = ({ children }) => {
     fetchCurrentUser();
   }, [fetchCurrentUser]);
 
-  const login = async (email, password) => {
-    const data = await api.post('/auth/login', { email, password });
+  const login = async (usernameOrEmail, password) => {
+    const data = await api.post('/auth/login', {
+      username: usernameOrEmail,
+      email: usernameOrEmail,
+      password,
+    });
     localStorage.setItem('school_erp_token', data.token);
     localStorage.setItem('school_erp_user', JSON.stringify(data.user));
     setUser(data.user);

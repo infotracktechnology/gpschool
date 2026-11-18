@@ -42,6 +42,12 @@ import { SubjectMapping } from './pages/students/SubjectMapping';
 import { InactiveTC } from './pages/students/InactiveTC';
 import { BulkCredentials } from './pages/students/BulkCredentials';
 
+// Attendance Management Pages
+import { AttendanceTimings } from './pages/attendance/AttendanceTimings';
+import { TakeAttendance } from './pages/attendance/TakeAttendance';
+import { AttendanceHistory } from './pages/attendance/AttendanceHistory';
+import { MonthlyAttendanceReport } from './pages/attendance/MonthlyAttendanceReport';
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -106,6 +112,14 @@ export default function App() {
             <Route path="students/subject-mapping" element={<SubjectMapping />} />
             <Route path="students/tc" element={<InactiveTC />} />
             <Route path="students/credentials" element={<BulkCredentials />} />
+
+            {/* Attendance Module Routes */}
+            <Route path="attendance/take" element={<TakeAttendance />} />
+            <Route path="attendance/history" element={<AttendanceHistory />} />
+            <Route path="attendance/monthly-report" element={<MonthlyAttendanceReport />} />
+
+            {/* Attendance Settings Route */}
+            <Route path="settings/attendance-timings" element={<AttendanceTimings />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

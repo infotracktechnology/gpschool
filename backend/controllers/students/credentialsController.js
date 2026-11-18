@@ -58,13 +58,13 @@ export const previewCredentials = async (req, res, next) => {
 
     // Fetch existing student users in this branch
     const [existingUsers] = await pool.query(
-      "SELECT id, email, phone FROM users WHERE role = 'student'"
+      "SELECT id, username, phone FROM users WHERE role = 'student'"
     );
-    const existingEmails = new Set(existingUsers.map((u) => u.email.toLowerCase()));
+    const existingUsernames = new Set(existingUsers.map((u) => (u.username || '').toLowerCase()));
 
     const previewList = students.map((stu) => {
       // 1. Generate username
-      let username = '';
+      let username = stu.admission_no;
       const cleanAdm = stu.admission_no.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
       const cleanName = stu.student_name.trim().toLowerCase().split(' ')[0].replace(/[^a-zA-Z0-9]/g, '');
       const roll = stu.roll_no || '00';
@@ -75,12 +75,13 @@ export const previewCredentials = async (req, res, next) => {
         username = `roll_${roll}`;
       } else if (username_rule === 'email' && stu.father_email) {
         username = stu.father_email;
+      } else if (username_rule === 'clean_adm') {
+        username = cleanAdm;
       } else {
-        username = cleanAdm || `stu_${stu.student_id}`;
+        username = stu.admission_no;
       }
 
-      // Ensure valid email for user record login
-      const loginEmail = username.includes('@') ? username : `${username}@student.school`;
+      const loginUsername = username;
 
       // 2. Generate password
       let generatedPassword = default_password;
@@ -96,7 +97,7 @@ export const previewCredentials = async (req, res, next) => {
         generatedPassword = stu.admission_no.replace(/[^a-zA-Z0-9]/g, '') || default_password;
       }
 
-      const accountExists = existingEmails.has(loginEmail.toLowerCase());
+      const accountExists = existingUsernames.has(loginUsername.toLowerCase());
 
       return {
         student_id: stu.student_id,
@@ -141,20 +142,21 @@ export const generateCredentialsBatch = async (req, res, next) => {
 
     for (const item of credentials) {
       const { student_id, student_name, username, email, password } = item;
-      const targetEmail = email || (username && username.includes('@') ? username : `${username}@student.school`);
+      const targetUsername = (username || email || '').trim();
 
-      if (!targetEmail || !password) continue;
+      if (!targetUsername || !password) continue;
 
-      const hashedPassword = await bcrypt.hash(password, 10);
+      // Plain text password for student credentials ("password hash vendam")
+      const finalPassword = password;
 
       // Check if user already exists
-      const [existing] = await conn.query('SELECT id FROM users WHERE email = ?', [targetEmail]);
+      const [existing] = await conn.query('SELECT id FROM users WHERE username = ?', [targetUsername]);
 
       if (existing.length > 0) {
         // Update password
         await conn.query(
           `UPDATE users SET password = ?, status = 'active', updated_at = NOW() WHERE id = ?`,
-          [hashedPassword, existing[0].id]
+          [finalPassword, existing[0].id]
         );
         updatedCount++;
       } else {
@@ -177,9 +179,9 @@ export const generateCredentialsBatch = async (req, res, next) => {
         }
 
         await conn.query(
-          `INSERT INTO users (name, email, password, role, branch_id, status)
+          `INSERT INTO users (name, username, password, role, branch_id, status)
            VALUES (?, ?, ?, 'student', ?, 'active')`,
-          [displayName || 'Student', targetEmail, hashedPassword, stuBranchId ? Number(stuBranchId) : null]
+          [displayName || 'Student', targetUsername, finalPassword, stuBranchId ? Number(stuBranchId) : null]
         );
         createdCount++;
       }

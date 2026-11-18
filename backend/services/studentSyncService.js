@@ -149,5 +149,40 @@ export async function syncAdmissionToStudent(conn, data) {
     enrollmentId = insEnr.insertId;
   }
 
+  // Auto-sync login account in `users` table:
+  // Username = admission_no, Password = DOB in DDMMYYYY format, Plain-text ("password hash vendam")
+  let studentPassword = 'Student@123';
+  if (dob) {
+    const dobStr = typeof dob === 'string' ? dob.split('T')[0] : new Date(dob).toISOString().split('T')[0];
+    const parts = dobStr.split('-');
+    if (parts.length === 3) {
+      studentPassword = `${parts[2]}${parts[1]}${parts[0]}`;
+    }
+  } else if (admission_no) {
+    studentPassword = admission_no.replace(/[^a-zA-Z0-9]/g, '');
+  }
+
+  try {
+    await conn.query(
+      `INSERT INTO users (name, username, password, role, branch_id, phone, status)
+       VALUES (?, ?, ?, 'student', ?, ?, 'active')
+       ON DUPLICATE KEY UPDATE
+         name = VALUES(name),
+         password = VALUES(password),
+         branch_id = VALUES(branch_id),
+         phone = VALUES(phone),
+         status = 'active'`,
+      [
+        student_name.trim(),
+        admission_no,
+        studentPassword,
+        branch_id ? Number(branch_id) : null,
+        primary_phone || father_phone || null,
+      ]
+    );
+  } catch (_uErr) {
+    // Non-fatal
+  }
+
   return { studentId, enrollmentId };
 }
