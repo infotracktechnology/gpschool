@@ -83,11 +83,17 @@ export const AdmissionList = () => {
 
   // Open Direct Walk-in Modal with proper initial cascade
   const handleOpenWalkin = async () => {
-    const initialBranchId =
-      effectiveBranchId || (branches.length > 0 ? String(branches[0].id) : '1');
-    const initialYearId =
-      effectiveAcademicYearId ||
-      (academicYears.length > 0 ? String(academicYears[0].id) : '1');
+    const validBranch =
+      branches.find((b) => b.id !== 'all' && String(b.id) === String(effectiveBranchId)) ||
+      branches.find((b) => b.id !== 'all') ||
+      branches[0];
+    const initialBranchId = validBranch && validBranch.id !== 'all' ? String(validBranch.id) : '2';
+
+    const validYear =
+      academicYears.find((y) => String(y.id) === String(effectiveAcademicYearId)) ||
+      academicYears.find((y) => y.is_current) ||
+      academicYears[0];
+    const initialYearId = validYear ? String(validYear.id) : '2';
 
     setLoadingWalkinLookups(true);
     let initialClassId = '';
@@ -575,11 +581,13 @@ export const AdmissionList = () => {
                 className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-border rounded-lg outline-none"
               >
                 <option value="">Select Branch</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={String(b.id)}>
-                    {b.name}
-                  </option>
-                ))}
+                {branches
+                  .filter((b) => b.id !== 'all')
+                  .map((b) => (
+                    <option key={b.id} value={String(b.id)}>
+                      {b.name}
+                    </option>
+                  ))}
               </select>
             </div>
 

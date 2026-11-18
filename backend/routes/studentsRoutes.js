@@ -40,6 +40,17 @@ import {
   generateCredentialsBatch,
 } from '../controllers/students/credentialsController.js';
 
+import {
+  uploadStudentPhotoHandler,
+  getStudentDocuments,
+  uploadStudentDocumentHandler,
+  deleteStudentDocumentHandler,
+} from '../controllers/students/documentController.js';
+import {
+  uploadStudentPhoto,
+  uploadStudentDocument,
+} from '../middleware/uploadMiddleware.js';
+
 const router = Router();
 
 // Protect all student suite routes
@@ -77,6 +88,13 @@ router.get('/tc/:id', getTCById);
 // --- Student Portal Credentials ---
 router.post('/credentials/preview', requireRoles('super_admin', 'admin', 'principal'), previewCredentials);
 router.post('/credentials/generate', requireRoles('super_admin', 'admin', 'principal'), generateCredentialsBatch);
+
+// --- Student Photo & Documents Upload ---
+router.post('/upload-photo', uploadStudentPhoto.single('photo'), uploadStudentPhotoHandler);
+router.post('/:id/photo', uploadStudentPhoto.single('photo'), uploadStudentPhotoHandler);
+router.get('/:id/documents', getStudentDocuments);
+router.post('/:id/documents', uploadStudentDocument.single('file'), uploadStudentDocumentHandler);
+router.delete('/:id/documents/:docId', requireRoles('super_admin', 'admin', 'principal'), deleteStudentDocumentHandler);
 
 // --- Core Student Management ---
 router.get('/', getStudents);

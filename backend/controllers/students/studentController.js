@@ -166,11 +166,25 @@ export const getStudentById = async (req, res, next) => {
     const currentEnrollment =
       enrollments.find((e) => e.enrollment_status === 'current') || enrollments[0] || null;
 
+    if (currentEnrollment) {
+      student.branch_id = currentEnrollment.branch_id;
+      student.branch_name = currentEnrollment.branch_name;
+      student.academic_year_id = currentEnrollment.academic_year_id;
+      student.academic_year_name = currentEnrollment.academic_year_name;
+      student.class_id = currentEnrollment.class_id;
+      student.class_name = currentEnrollment.class_name;
+      student.section_id = currentEnrollment.section_id;
+      student.section_name = currentEnrollment.section_name;
+      student.roll_no = currentEnrollment.roll_no || student.roll_no || '';
+      student.admission_category = currentEnrollment.admission_category || student.admission_category || 'General';
+      student.academic_group_id = currentEnrollment.academic_group_id;
+    }
+
     // Fetch subject mappings
     let subjects = [];
     if (currentEnrollment) {
       const [subjRows] = await pool.query(
-        `SELECT ssm.*, sub.name AS subject_name, sub.code AS subject_code, sub.type AS subject_type
+        `SELECT ssm.*, sub.name AS subject_name, sub.code AS subject_code
          FROM student_subject_mappings ssm
          JOIN subjects sub ON ssm.subject_id = sub.id
          WHERE ssm.student_id = ? AND ssm.enrollment_id = ?
@@ -457,6 +471,8 @@ export const updateStudent = async (req, res, next) => {
       roll_no,
       section_id,
       class_id,
+      branch_id,
+      academic_year_id,
       academic_group_id,
       admission_category,
       enrollment_status,
@@ -554,6 +570,8 @@ export const updateStudent = async (req, res, next) => {
       roll_no !== undefined ||
       section_id !== undefined ||
       class_id !== undefined ||
+      branch_id !== undefined ||
+      academic_year_id !== undefined ||
       academic_group_id !== undefined ||
       admission_category !== undefined ||
       enrollment_status !== undefined
@@ -563,6 +581,8 @@ export const updateStudent = async (req, res, next) => {
           roll_no = COALESCE(?, roll_no),
           section_id = COALESCE(?, section_id),
           class_id = COALESCE(?, class_id),
+          branch_id = COALESCE(?, branch_id),
+          academic_year_id = COALESCE(?, academic_year_id),
           academic_group_id = COALESCE(?, academic_group_id),
           admission_category = COALESCE(?, admission_category),
           enrollment_status = COALESCE(?, enrollment_status),
@@ -572,6 +592,8 @@ export const updateStudent = async (req, res, next) => {
           roll_no !== undefined ? roll_no : null,
           section_id ? Number(section_id) : null,
           class_id ? Number(class_id) : null,
+          branch_id ? Number(branch_id) : null,
+          academic_year_id ? Number(academic_year_id) : null,
           academic_group_id ? Number(academic_group_id) : null,
           admission_category || null,
           enrollment_status || null,
@@ -593,7 +615,7 @@ export const updateStudent = async (req, res, next) => {
 export const bulkUpdateStudents = async (req, res, next) => {
   const conn = await pool.getConnection();
   try {
-    const { updates } = req.body;
+    const updates = req.body.updates || req.body.students || [];
 
     if (!Array.isArray(updates) || updates.length === 0) {
       conn.release();
@@ -610,37 +632,87 @@ export const bulkUpdateStudents = async (req, res, next) => {
       await conn.query(
         `UPDATE students SET
           student_name = COALESCE(?, student_name),
+          gender = COALESCE(?, gender),
           dob = COALESCE(?, dob),
           blood_group = COALESCE(?, blood_group),
+          aadhaar_no = COALESCE(?, aadhaar_no),
+          religion = COALESCE(?, religion),
+          caste_category = COALESCE(?, caste_category),
+          nationality = COALESCE(?, nationality),
+          mother_tongue = COALESCE(?, mother_tongue),
+          father_name = COALESCE(?, father_name),
           father_phone = COALESCE(?, father_phone),
+          father_email = COALESCE(?, father_email),
+          mother_name = COALESCE(?, mother_name),
           mother_phone = COALESCE(?, mother_phone),
+          guardian_name = COALESCE(?, guardian_name),
+          guardian_phone = COALESCE(?, guardian_phone),
+          street_address = COALESCE(?, street_address),
+          city = COALESCE(?, city),
+          state = COALESCE(?, state),
+          pincode = COALESCE(?, pincode),
+          emergency_contact_phone = COALESCE(?, emergency_contact_phone),
+          previous_school = COALESCE(?, previous_school),
+          previous_class = COALESCE(?, previous_class),
+          previous_board = COALESCE(?, previous_board),
+          previous_tc_no = COALESCE(?, previous_tc_no),
           status = COALESCE(?, status),
           updated_at = NOW()
          WHERE id = ?`,
         [
-          item.student_name || null,
+          item.student_name !== undefined ? item.student_name.trim() : null,
+          item.gender || null,
           item.dob || null,
           item.blood_group || null,
-          item.phone || item.father_phone || null,
+          item.aadhaar_no || null,
+          item.religion || null,
+          item.caste_category || null,
+          item.nationality || null,
+          item.mother_tongue || null,
+          item.father_name || null,
+          item.father_phone || item.phone || item.primary_phone || null,
+          item.father_email || null,
+          item.mother_name || null,
           item.mother_phone || null,
+          item.guardian_name || null,
+          item.guardian_phone || null,
+          item.street_address || null,
+          item.city || null,
+          item.state || null,
+          item.pincode || null,
+          item.emergency_contact_phone || null,
+          item.previous_school || null,
+          item.previous_class || null,
+          item.previous_board || null,
+          item.previous_tc_no || null,
           item.status || null,
           studentId,
         ]
       );
 
       // Update enrollment fields
-      if (item.roll_no !== undefined || item.section_id !== undefined || item.academic_group_id !== undefined) {
+      if (
+        item.roll_no !== undefined ||
+        item.section_id !== undefined ||
+        item.admission_category !== undefined ||
+        item.academic_group_id !== undefined ||
+        item.enrollment_status !== undefined
+      ) {
         await conn.query(
           `UPDATE student_enrollments SET
             roll_no = COALESCE(?, roll_no),
             section_id = COALESCE(?, section_id),
+            admission_category = COALESCE(?, admission_category),
             academic_group_id = COALESCE(?, academic_group_id),
+            enrollment_status = COALESCE(?, enrollment_status),
             updated_at = NOW()
            WHERE student_id = ? AND enrollment_status = 'current'`,
           [
             item.roll_no !== undefined ? String(item.roll_no) : null,
             item.section_id ? Number(item.section_id) : null,
+            item.admission_category || null,
             item.academic_group_id ? Number(item.academic_group_id) : null,
+            item.enrollment_status || null,
             studentId,
           ]
         );

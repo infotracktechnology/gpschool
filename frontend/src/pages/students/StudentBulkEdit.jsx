@@ -65,16 +65,47 @@ export const StudentBulkEdit = () => {
   const [focusedCell, setFocusedCell] = useState(null);
   const tableRef = useRef(null);
 
-  const columns = [
-    { key: 'roll_no', label: 'Roll No', width: 'w-24', type: 'text' },
-    { key: 'section_id', label: 'Section', width: 'w-28', type: 'select-section' },
-    { key: 'student_name', label: 'Student Name', width: 'w-56', type: 'text' },
-    { key: 'gender', label: 'Gender', width: 'w-28', type: 'select-gender' },
-    { key: 'dob', label: 'Date of Birth', width: 'w-36', type: 'date' },
-    { key: 'blood_group', label: 'Blood Grp', width: 'w-28', type: 'select-blood' },
-    { key: 'primary_phone', label: 'Primary Phone', width: 'w-36', type: 'tel' },
-    { key: 'admission_category', label: 'Category', width: 'w-32', type: 'select-category' },
+  // Column Group View: 'all' | 'academic' | 'personal' | 'parents' | 'address_school'
+  const [activeColumnGroup, setActiveColumnGroup] = useState('all');
+
+  const allColumns = [
+    // Academic & Placement
+    { key: 'roll_no', label: 'Roll No', width: 'w-24 min-w-[90px]', type: 'text', group: 'academic' },
+    { key: 'section_id', label: 'Section', width: 'w-28 min-w-[110px]', type: 'select-section', group: 'academic' },
+    { key: 'admission_category', label: 'Category', width: 'w-32 min-w-[120px]', type: 'select-category', group: 'academic' },
+    { key: 'status', label: 'Status', width: 'w-28 min-w-[110px]', type: 'select-status', group: 'academic' },
+
+    // Student Identity
+    { key: 'student_name', label: 'Student Name', width: 'w-52 min-w-[200px]', type: 'text', group: 'personal' },
+    { key: 'gender', label: 'Gender', width: 'w-28 min-w-[110px]', type: 'select-gender', group: 'personal' },
+    { key: 'dob', label: 'Date of Birth', width: 'w-36 min-w-[140px]', type: 'date', group: 'personal' },
+    { key: 'blood_group', label: 'Blood Grp', width: 'w-24 min-w-[90px]', type: 'select-blood', group: 'personal' },
+    { key: 'aadhaar_no', label: 'Aadhaar No', width: 'w-36 min-w-[140px]', type: 'text', group: 'personal' },
+    { key: 'religion', label: 'Religion', width: 'w-32 min-w-[120px]', type: 'select-religion', group: 'personal' },
+    { key: 'caste_category', label: 'Caste Grp', width: 'w-32 min-w-[120px]', type: 'select-caste', group: 'personal' },
+
+    // Parents & Contacts
+    { key: 'father_name', label: "Father's Name", width: 'w-48 min-w-[180px]', type: 'text', group: 'parents' },
+    { key: 'father_phone', label: "Father's Phone", width: 'w-36 min-w-[140px]', type: 'tel', group: 'parents' },
+    { key: 'mother_name', label: "Mother's Name", width: 'w-48 min-w-[180px]', type: 'text', group: 'parents' },
+    { key: 'mother_phone', label: "Mother's Phone", width: 'w-36 min-w-[140px]', type: 'tel', group: 'parents' },
+    { key: 'emergency_contact_phone', label: 'Emergency Phone', width: 'w-36 min-w-[140px]', type: 'tel', group: 'parents' },
+
+    // Address
+    { key: 'street_address', label: 'Street Address', width: 'w-56 min-w-[220px]', type: 'text', group: 'address_school' },
+    { key: 'city', label: 'City', width: 'w-32 min-w-[120px]', type: 'text', group: 'address_school' },
+    { key: 'pincode', label: 'PIN Code', width: 'w-24 min-w-[90px]', type: 'text', group: 'address_school' },
+
+    // Previous Schooling
+    { key: 'previous_school', label: 'Previous School', width: 'w-52 min-w-[200px]', type: 'text', group: 'address_school' },
+    { key: 'previous_class', label: 'Previous Class', width: 'w-32 min-w-[120px]', type: 'text', group: 'address_school' },
+    { key: 'previous_tc_no', label: 'Previous TC No', width: 'w-36 min-w-[140px]', type: 'text', group: 'address_school' },
   ];
+
+  const columns = useMemo(() => {
+    if (activeColumnGroup === 'all') return allColumns;
+    return allColumns.filter((c) => c.group === activeColumnGroup);
+  }, [activeColumnGroup, allColumns]);
 
   // Auto-select first class if none selected and classes exist
   useEffect(() => {
@@ -105,9 +136,26 @@ export const StudentBulkEdit = () => {
       const formatted = list.map((s) => ({
         ...s,
         dob: s.dob ? s.dob.slice(0, 10) : '',
-        primary_phone: s.primary_phone || s.father_phone || '',
-        admission_category: s.admission_category || 'General',
+        gender: s.gender || 'male',
+        blood_group: s.blood_group || 'O+',
+        roll_no: s.roll_no || '',
         section_id: s.section_id ? String(s.section_id) : '',
+        admission_category: s.admission_category || 'General',
+        status: s.status || 'active',
+        father_name: s.father_name || '',
+        father_phone: s.father_phone || s.primary_phone || '',
+        mother_name: s.mother_name || '',
+        mother_phone: s.mother_phone || '',
+        aadhaar_no: s.aadhaar_no || '',
+        religion: s.religion || 'Hindu',
+        caste_category: s.caste_category || 'General',
+        street_address: s.street_address || s.address_street || '',
+        city: s.city || '',
+        pincode: s.pincode || '',
+        emergency_contact_phone: s.emergency_contact_phone || '',
+        previous_school: s.previous_school || '',
+        previous_class: s.previous_class || '',
+        previous_tc_no: s.previous_tc_no || '',
       }));
 
       setStudents(formatted);
@@ -181,6 +229,7 @@ export const StudentBulkEdit = () => {
     setMessage(null);
     try {
       const payload = {
+        updates: Object.values(modifiedMap),
         students: Object.values(modifiedMap),
       };
 
@@ -485,23 +534,49 @@ export const StudentBulkEdit = () => {
           isFullscreen ? 'flex-1 mt-4' : 'min-h-[480px]'
         }`}
       >
-        {/* Table Toolbar Info */}
-        <div className="px-5 py-3 border-b border-border bg-slate-50/70 flex items-center justify-between text-xs text-slate-600 shrink-0">
+        {/* Table Toolbar Info & Column Scope Selector */}
+        <div className="px-5 py-3 border-b border-border bg-slate-50/70 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600 shrink-0">
+          {/* Column Group Tabs */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+            <span className="font-semibold text-slate-700 mr-1 text-[11px] uppercase tracking-wider">
+              Columns:
+            </span>
+            {[
+              { id: 'all', label: `All Fields (${allColumns.length})` },
+              { id: 'academic', label: 'Academic & Roll' },
+              { id: 'personal', label: 'Student Identity' },
+              { id: 'parents', label: 'Parents & Contact' },
+              { id: 'address_school', label: 'Address & Previous School' },
+            ].map((grp) => (
+              <button
+                key={grp.id}
+                type="button"
+                onClick={() => setActiveColumnGroup(grp.id)}
+                className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all ${
+                  activeColumnGroup === grp.id
+                    ? 'bg-brand-600 text-white shadow-xs'
+                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {grp.label}
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-3">
             <span>
               Rows: <strong>{filteredStudents.length}</strong>
             </span>
             <span>•</span>
-            <span className="text-slate-400">
+            <span className="text-slate-400 hidden md:inline">
               Navigation: Use <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono text-[10px]">Arrow Keys</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono text-[10px]">Tab</kbd> / <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 font-mono text-[10px]">Enter</kbd>
             </span>
+            {modifiedCount > 0 && (
+              <span className="text-amber-700 font-bold bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200 text-[11px]">
+                {modifiedCount} student{modifiedCount === 1 ? '' : 's'} modified (Unsaved)
+              </span>
+            )}
           </div>
-
-          {modifiedCount > 0 && (
-            <span className="text-amber-700 font-medium">
-              * Highlighted amber rows contain unsaved edits
-            </span>
-          )}
         </div>
 
         {/* Scrollable Matrix Table */}
@@ -651,7 +726,7 @@ export const StudentBulkEdit = () => {
                             <td key={col.key} className="p-0 border-r border-slate-200">
                               <select
                                 id={cellId}
-                                value={value}
+                                value={value || 'General'}
                                 onChange={(e) =>
                                   handleCellChange(student.id, col.key, e.target.value)
                                 }
@@ -665,6 +740,75 @@ export const StudentBulkEdit = () => {
                                 <option value="EWS">EWS</option>
                                 <option value="Management">Management</option>
                                 <option value="RTE">RTE</option>
+                                <option value="Sibling">Sibling</option>
+                                <option value="Staff Child">Staff Child</option>
+                                <option value="Scholarship">Scholarship</option>
+                              </select>
+                            </td>
+                          );
+                        }
+
+                        if (col.type === 'select-status') {
+                          return (
+                            <td key={col.key} className="p-0 border-r border-slate-200">
+                              <select
+                                id={cellId}
+                                value={value || 'active'}
+                                onChange={(e) =>
+                                  handleCellChange(student.id, col.key, e.target.value)
+                                }
+                                onKeyDown={(e) => handleKeyDown(e, rIdx, cIdx)}
+                                className="w-full h-full px-2.5 py-2 bg-transparent text-xs text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-500 rounded-none cursor-pointer capitalize font-semibold"
+                              >
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="transferred">Transferred</option>
+                              </select>
+                            </td>
+                          );
+                        }
+
+                        if (col.type === 'select-religion') {
+                          return (
+                            <td key={col.key} className="p-0 border-r border-slate-200">
+                              <select
+                                id={cellId}
+                                value={value || 'Hindu'}
+                                onChange={(e) =>
+                                  handleCellChange(student.id, col.key, e.target.value)
+                                }
+                                onKeyDown={(e) => handleKeyDown(e, rIdx, cIdx)}
+                                className="w-full h-full px-2.5 py-2 bg-transparent text-xs text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-500 rounded-none cursor-pointer"
+                              >
+                                <option value="Hindu">Hindu</option>
+                                <option value="Muslim">Muslim</option>
+                                <option value="Christian">Christian</option>
+                                <option value="Sikh">Sikh</option>
+                                <option value="Jain">Jain</option>
+                                <option value="Buddhist">Buddhist</option>
+                                <option value="Other">Other</option>
+                              </select>
+                            </td>
+                          );
+                        }
+
+                        if (col.type === 'select-caste') {
+                          return (
+                            <td key={col.key} className="p-0 border-r border-slate-200">
+                              <select
+                                id={cellId}
+                                value={value || 'General'}
+                                onChange={(e) =>
+                                  handleCellChange(student.id, col.key, e.target.value)
+                                }
+                                onKeyDown={(e) => handleKeyDown(e, rIdx, cIdx)}
+                                className="w-full h-full px-2.5 py-2 bg-transparent text-xs text-slate-800 focus:outline-none focus:bg-white focus:ring-2 focus:ring-brand-500 rounded-none cursor-pointer"
+                              >
+                                <option value="General">General</option>
+                                <option value="OBC">OBC</option>
+                                <option value="SC">SC</option>
+                                <option value="ST">ST</option>
+                                <option value="EWS">EWS</option>
                               </select>
                             </td>
                           );

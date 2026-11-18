@@ -2,9 +2,10 @@ const API_BASE_URL = '/api';
 
 export const apiClient = async (endpoint, options = {}) => {
   const token = localStorage.getItem('school_erp_token');
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
 
   const headers = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   };
@@ -14,7 +15,7 @@ export const apiClient = async (endpoint, options = {}) => {
     headers,
   };
 
-  if (options.body && typeof options.body === 'object') {
+  if (!isFormData && options.body && typeof options.body === 'object') {
     config.body = JSON.stringify(options.body);
   }
 
@@ -46,4 +47,5 @@ export const api = {
   put: (url, body, options) => apiClient(url, { ...options, method: 'PUT', body }),
   patch: (url, body, options) => apiClient(url, { ...options, method: 'PATCH', body }),
   delete: (url, options) => apiClient(url, { ...options, method: 'DELETE' }),
+  upload: (url, formData, options) => apiClient(url, { ...options, method: 'POST', body: formData }),
 };
