@@ -14,6 +14,7 @@ import calendarRoutes from './calendarRoutes.js';
 import staffProfileRoutes from './staffProfileRoutes.js';
 import attendanceRoutes from './attendanceRoutes.js';
 import studentsRoutes from './studentsRoutes.js';
+import { communicationRouter } from './communicationRoutes.js';
 
 const router = Router();
 
@@ -46,5 +47,5 @@ router.use('/attendance', attendanceRoutes);
 
 // Students Module
 router.use('/students', studentsRoutes);
-
+router.use('/communication', communicationRouter);
 export default router;

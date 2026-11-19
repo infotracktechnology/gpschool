@@ -34,6 +34,10 @@ import {
   History,
   BarChart2,
   ClipboardCheck,
+  FileCheck2,
+  Bell,
+  MessageSquare,
+  Image
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -191,6 +195,14 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
     },
   ];
 
+    const communicationSubItems = [
+    { id: 'homework', label: '1. Homework', path: '/communication/homework', icon: BookOpen },
+    { id: 'assignment', label: '2. Assignment', path: '/communication/assignment', icon: FileCheck2 },
+    { id: 'announcement', label: '3. Announcement', path: '/communication/announcement', icon: Bell },
+    { id: 'gallery', label: '4. Gallery', path: '/communication/gallery', icon: Image },
+    { id: 'audit', label: '5. Audit Trail', path: '/communication/audit', icon: History },
+  ];
+  const isCommunicationActive = location.pathname.startsWith('/communication');
   const isAdmissionActive = admissionItems.some((item) =>
     location.pathname.startsWith(item.path)
   );
@@ -209,6 +221,7 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
   const [studentOpen, setStudentOpen] = useState(isStudentActive || false);
   const [attendanceOpen, setAttendanceOpen] = useState(isAttendanceActive || false);
   const [academicOpen, setAcademicOpen] = useState(isAcademicActive || false);
+  const [communicationOpen, setCommunicationOpen] = useState(isCommunicationActive || false);
   const [admissionSettingsOpen, setAdmissionSettingsOpen] = useState(
     isAdmissionSettingsActive || false
   );
@@ -385,6 +398,61 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
                         >
                           <Icon className="w-3.5 h-3.5 shrink-0" />
                           <span>{item.label}</span>
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+              
+            {/* Expandable Communication Module */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setCommunicationOpen((prev) => !prev)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all group cursor-pointer ${
+                      isCommunicationActive
+                        ? 'text-brand-900 bg-brand-50/70 font-semibold'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                        className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                          isCommunicationActive ? 'text-brand-600' : 'text-slate-500'
+                        }`}
+                      >
+                        <MessageSquare className="w-4 h-4 text-indigo-600" />
+                      </div>
+                    <span>Communication</span>
+                  </div>
+                  {communicationOpen ? (
+                    <ChevronDown className={`w-4 h-4 transition-transform ${isCommunicationActive ? 'text-white' : 'text-slate-400'}`} />
+                  ) : (
+                    <ChevronRight className={`w-4 h-4 transition-transform ${isCommunicationActive ? 'text-white' : 'text-slate-400'}`} />
+                  )}
+                </button>
+
+                {communicationOpen && (
+                  <div className="mt-1 ml-3 pl-3 border-l-2 border-slate-100 space-y-1">
+                    {communicationSubItems.map((sub) => {
+                      const SubIcon = sub.icon;
+                      const isSubActive =
+                        location.pathname === sub.path ||
+                        location.pathname.startsWith(`${sub.path}/`) ||
+                        (location.pathname === '/communication' && sub.id === 'homework');
+                      return (
+                        <NavLink
+                          key={sub.id}
+                          to={sub.path}
+                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                            isSubActive
+                              ? 'bg-brand-50 text-brand-700 font-semibold border border-brand-200/80 shadow-xs'
+                              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                          }`}
+                        >
+                          <SubIcon className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{sub.label}</span>
                         </NavLink>
                       );
                     })}
