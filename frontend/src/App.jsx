@@ -49,12 +49,36 @@ import { TakeAttendance } from './pages/attendance/TakeAttendance';
 import { AttendanceHistory } from './pages/attendance/AttendanceHistory';
 import { MonthlyAttendanceReport } from './pages/attendance/MonthlyAttendanceReport';
 
+// Dedicated Student Web Portal Pages
+import { StudentLayout } from './components/layout/StudentLayout';
+import StudentDashboard from './pages/student/StudentDashboard';
+import StudentHomework from './pages/student/StudentHomework';
+import StudentAssignments from './pages/student/StudentAssignments';
+import StudentAttendance from './pages/student/StudentAttendance';
+import StudentProfileView from './pages/student/StudentProfileView';
+import StudentCalendar from './pages/student/StudentCalendar';
+import StudentAnnouncements from './pages/student/StudentAnnouncements';
+import StudentGallery from './pages/student/StudentGallery';
+
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+
+          {/* Dedicated Student Web Portal Routes */}
+          <Route path="/student" element={<StudentLayout />}>
+            <Route index element={<Navigate to="/student/dashboard" replace />} />
+            <Route path="dashboard" element={<StudentDashboard />} />
+            <Route path="homework" element={<StudentHomework />} />
+            <Route path="assignments" element={<StudentAssignments />} />
+            <Route path="attendance" element={<StudentAttendance />} />
+            <Route path="calendar" element={<StudentCalendar />} />
+            <Route path="announcements" element={<StudentAnnouncements />} />
+            <Route path="gallery" element={<StudentGallery />} />
+            <Route path="profile" element={<StudentProfileView />} />
+          </Route>
           <Route path="/" element={<AppLayout />}>
             <Route index element={<Dashboard />} />
             

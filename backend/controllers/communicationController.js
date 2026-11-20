@@ -149,7 +149,7 @@ export const communicationController = {
         let studentSql = `
           SELECT se.student_id, se.student_id AS user_id
           FROM student_enrollments se
-          WHERE se.enrollment_status = 'active'
+          WHERE (se.enrollment_status = 'current' OR se.enrollment_status = 'active')
         `;
         const studentParams = [];
         if (payload.branch_id && payload.branch_id !== 'all') {
@@ -420,7 +420,7 @@ export const communicationController = {
 
       // FCM Push Notification to students
       try {
-        let qSql = 'SELECT se.student_id, se.student_id AS user_id FROM student_enrollments se WHERE se.enrollment_status = "active"';
+        let qSql = 'SELECT se.student_id, se.student_id AS user_id FROM student_enrollments se WHERE (se.enrollment_status = "current" OR se.enrollment_status = "active")';
         const qParams = [];
         if (payload.branch_id && payload.branch_id !== 'all') {
           qSql += ' AND se.branch_id = ?';
@@ -620,7 +620,7 @@ export const communicationController = {
       const [enrollCounts] = await pool.query(`
         SELECT class_id, section_id, COUNT(*) as cnt
         FROM student_enrollments
-        WHERE enrollment_status = 'active'
+        WHERE (enrollment_status = 'current' OR enrollment_status = 'active')
         GROUP BY class_id, section_id
       `);
       const enrollMap = new Map();
@@ -690,7 +690,7 @@ export const communicationController = {
         FROM student_enrollments se
         JOIN students st ON se.student_id = st.id
         LEFT JOIN branch_class_sections s ON se.section_id = s.id
-        WHERE se.class_id = ? AND se.enrollment_status = 'active'
+        WHERE se.class_id = ? AND (se.enrollment_status = 'current' OR se.enrollment_status = 'active')
       `;
       const stuParams = [assignment.class_id];
 
@@ -1479,17 +1479,33 @@ export const communicationController = {
   // --- Student / Parent Portal Feed Simulation ---
   async getStudentPortalFeed(req, res, next) {
     try {
-      const { student_id } = req.query;
-      const sId = Number(student_id);
+      let { student_id } = req.query;
+      let sId = Number(student_id);
+
+      if (!sId && req.user) {
+        if (req.user.student_id) {
+          sId = Number(req.user.student_id);
+        } else if (req.user.role === 'student' && req.user.username) {
+          const [foundStu] = await pool.query(
+            'SELECT id FROM students WHERE LOWER(admission_no) = ? LIMIT 1',
+            [req.user.username.toLowerCase()]
+          );
+          if (foundStu.length > 0) {
+            sId = foundStu[0].id;
+          }
+        }
+      }
 
       if (!sId) {
         return res.status(400).json({ success: false, message: 'student_id is required' });
       }
 
       const [students] = await pool.query(
-        `SELECT st.*, se.class_id, se.section_id, se.branch_id, c.name AS class_name, s.name AS section_name, b.name AS branch_name
+        `SELECT st.*, se.class_id, se.section_id, se.branch_id, se.roll_no,
+                c.name AS class_name, c.code AS class_code,
+                s.name AS section_name, b.name AS branch_name
          FROM students st
-         LEFT JOIN student_enrollments se ON st.id = se.student_id AND se.enrollment_status = 'active'
+         LEFT JOIN student_enrollments se ON st.id = se.student_id AND (se.enrollment_status = 'current' OR se.enrollment_status = 'active')
          LEFT JOIN classes c ON se.class_id = c.id
          LEFT JOIN branch_class_sections s ON se.section_id = s.id
          LEFT JOIN branches b ON se.branch_id = b.id
@@ -1502,43 +1518,150 @@ export const communicationController = {
       }
       const student = students[0];
 
+      // Assigned subjects for the student
+      let assignedSubjects = [];
+      if (student.class_id) {
+        const [subRows] = await pool.query(
+          `SELECT sub.id, sub.name, sub.code, sub.category, sub.requirement
+           FROM subjects sub
+           WHERE sub.class_id = ? AND sub.status = 'active'
+           ORDER BY sub.name ASC`,
+          [student.class_id]
+        );
+        assignedSubjects = subRows;
+      }
+
+      // Attendance statistics
+      const [attStats] = await pool.query(
+        `SELECT 
+           COUNT(*) as total_records,
+           SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
+           SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
+           SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late_days
+         FROM student_attendance
+         WHERE student_id = ?`,
+        [sId]
+      );
+
+      // Today's session status
+      const [todayAtt] = await pool.query(
+        `SELECT session, status FROM student_attendance
+         WHERE student_id = ? AND attendance_date = CURDATE()`,
+        [sId]
+      );
+      let morningSession = 'Not Marked';
+      let afternoonSession = 'Not Marked';
+      todayAtt.forEach((row) => {
+        const st = row.status === 'present' ? 'Present' : (row.status === 'absent' ? 'Absent' : 'Late');
+        if (row.session === 'session1') morningSession = st;
+        if (row.session === 'session2') afternoonSession = st;
+      });
+
+      const totalRecorded = Number(attStats[0]?.total_records || 0);
+      const presentDays = Number(attStats[0]?.present_days || 0);
+      const absentDays = Number(attStats[0]?.absent_days || 0);
+      const attendancePercentage = totalRecorded > 0 ? Math.round((presentDays / totalRecorded) * 100) : 100;
+
+      // Attendance recent daily logs (last 60 days)
+      const [attendanceLogs] = await pool.query(
+        `SELECT id, attendance_date, session, status
+         FROM student_attendance
+         WHERE student_id = ?
+         ORDER BY attendance_date DESC, session ASC
+         LIMIT 60`,
+        [sId]
+      );
+
+      const sectionVal = student.section_id ? String(student.section_id) : 'all';
+
+      // Homework matching student's class and section (or all sections)
       const [homework] = await pool.query(
-        `SELECT h.*, COALESCE(sub.name, h.subject) AS subject_name 
+        `SELECT h.*, c.name AS class_name, s.name AS section_name, COALESCE(sub.name, h.subject) AS subject_name 
          FROM homework h 
+         LEFT JOIN classes c ON h.class_id = c.id
+         LEFT JOIN branch_class_sections s ON (
+           (h.section_id REGEXP '^[0-9]+$' AND h.section_id != 'all' AND h.section_id != '' AND CAST(h.section_id AS UNSIGNED) = s.id)
+           OR s.name = h.section_id
+         )
          LEFT JOIN subjects sub ON h.subject_id = sub.id 
          WHERE (h.class_id = ? OR h.class_id IS NULL)
-         ORDER BY h.id DESC LIMIT 20`,
-        [student.class_id || 0]
+           AND (h.section_id IS NULL OR h.section_id = 'all' OR h.section_id = '' OR h.section_id = 'null' OR h.section_id = ? OR CAST(h.section_id AS CHAR) = ?)
+           AND (h.status = 'Published' OR h.status IS NULL OR h.status = '')
+         ORDER BY h.id DESC LIMIT 50`,
+        [student.class_id || 0, sectionVal, sectionVal]
       );
 
+      // Assignments with this student's submission status and grades
       const [assignments] = await pool.query(
-        `SELECT a.*, COALESCE(sub.name, a.subject) AS subject_name 
+        `SELECT a.*, c.name AS class_name, s.name AS section_name, COALESCE(sub.name, a.subject) AS subject_name,
+                asub.id AS my_submission_id,
+                asub.status AS my_submission_status,
+                asub.submission_files AS my_submission_files,
+                asub.obtained_marks AS my_obtained_marks,
+                asub.teacher_feedback AS my_teacher_feedback,
+                asub.submitted_at AS my_submitted_at,
+                asub.reviewed_at AS my_reviewed_at
          FROM assignments a 
+         LEFT JOIN classes c ON a.class_id = c.id
+         LEFT JOIN branch_class_sections s ON (
+           (a.section_id REGEXP '^[0-9]+$' AND a.section_id != 'all' AND a.section_id != '' AND CAST(a.section_id AS UNSIGNED) = s.id)
+           OR s.name = a.section_id
+         )
          LEFT JOIN subjects sub ON a.subject_id = sub.id 
+         LEFT JOIN assignment_submissions asub ON a.id = asub.assignment_id AND asub.student_id = ?
          WHERE (a.class_id = ? OR a.class_id IS NULL)
-         ORDER BY a.id DESC LIMIT 20`,
-        [student.class_id || 0]
+           AND (a.section_id IS NULL OR a.section_id = 'all' OR a.section_id = '' OR a.section_id = 'null' OR a.section_id = ? OR CAST(a.section_id AS CHAR) = ?)
+           AND (a.status = 'Published' OR a.status IS NULL OR a.status = '')
+         ORDER BY a.id DESC LIMIT 50`,
+        [sId, student.class_id || 0, sectionVal, sectionVal]
       );
 
+      // Announcements targeted to All or this class
       const [announcements] = await pool.query(
         `SELECT * FROM announcements 
          WHERE (target_audience = 'All' OR target_class_id = ? OR target_class_id IS NULL)
-         ORDER BY id DESC LIMIT 20`,
+           AND (status = 'Published' OR status IS NULL OR status = '')
+         ORDER BY id DESC LIMIT 50`,
         [student.class_id || 0]
       );
 
+      // Academic Calendar events
+      const [events] = await pool.query(
+        `SELECT id, branch_id, academic_year_id, title, description, event_type,
+                DATE_FORMAT(start_date, '%Y-%m-%d') as start_date,
+                DATE_FORMAT(end_date, '%Y-%m-%d') as end_date,
+                is_holiday, school_closed, color_code, is_published
+         FROM academic_calendar_events
+         WHERE (is_published = 1 OR is_published IS NULL)
+         ORDER BY start_date ASC LIMIT 50`
+      );
+
+      // Gallery albums
       const [albums] = await pool.query(
-        `SELECT a.*, a.title AS album_name, a.cover_image AS cover_image_url 
+        `SELECT a.*, a.title AS album_name, a.cover_image AS cover_image_url,
+                (SELECT COUNT(*) FROM gallery_media gm WHERE gm.album_id = a.id) as media_count
          FROM gallery_albums a 
-         ORDER BY id DESC LIMIT 20`
+         ORDER BY a.id DESC LIMIT 30`
       );
 
       res.json({
         success: true,
         student,
+        assigned_subjects: assignedSubjects,
+        attendance_summary: {
+          percentage: attendancePercentage,
+          total_records: totalRecorded,
+          present_days: presentDays,
+          absent_days: absentDays,
+          standing: attendancePercentage >= 75 ? 'Good Standing' : 'Attention Required',
+          morning_session: morningSession,
+          afternoon_session: afternoonSession
+        },
+        attendance_logs: attendanceLogs,
         homework,
         assignments,
         announcements,
+        events,
         albums
       });
     } catch (err) {

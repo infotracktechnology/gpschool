@@ -78,8 +78,12 @@ export const Login = () => {
     setIsSubmitting(true);
 
     try {
-      await login(username, password);
-      navigate('/');
+      const res = await login(username, password);
+      if (res?.user?.role === 'student') {
+        navigate('/student/dashboard');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.message || 'Login failed. Please verify your institutional credentials.');
     } finally {
