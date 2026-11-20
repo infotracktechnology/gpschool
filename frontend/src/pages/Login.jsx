@@ -41,11 +41,19 @@ export const Login = () => {
     },
     {
       id: 'principal',
-      label: 'School Principal',
-      badge: 'Green Park School',
+      label: 'Principal',
+      badge: 'Salem Campus',
       desc: 'Academic & Campus Head',
       username: 'principal@schoolerp.com',
       pass: 'Admin@123',
+    },
+    {
+      id: 'teacher',
+      label: 'Teacher Portal',
+      badge: 'GPS-T-001',
+      desc: 'Faculty & Attendance Suite',
+      username: 'GPS-T-001',
+      pass: '9840123456',
     },
     {
       id: 'branch_admin',
@@ -78,8 +86,13 @@ export const Login = () => {
     setIsSubmitting(true);
 
     try {
-      await login(username, password);
-      navigate('/');
+      const data = await login(username, password);
+      const role = data?.user?.role || (username.startsWith('GPS-T') ? 'teacher' : 'admin');
+      if (role === 'teacher' || role === 'staff') {
+        navigate('/portal');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setError(err.message || 'Login failed. Please verify your institutional credentials.');
     } finally {
@@ -213,7 +226,7 @@ export const Login = () => {
             </p>
           </div>
 
-          {/* 1-CLICK DEMO PROFILE SELECTOR 
+          {/* 1-CLICK DEMO PROFILE SELECTOR */}
           <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
             <div className="flex items-center justify-between text-[11px]">
               <span className="font-semibold text-slate-700 flex items-center gap-1.5">
@@ -223,7 +236,7 @@ export const Login = () => {
               <span className="text-[10px] text-slate-400">Auto-fills credentials</span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {demoRoles.map((role) => {
                 const isSelected = selectedDemoRole === role.id;
                 return (
@@ -246,7 +259,7 @@ export const Login = () => {
                 );
               })}
             </div>
-          </div>*/}
+          </div>
 
           {/* Error Message Toast */}
           {error && (

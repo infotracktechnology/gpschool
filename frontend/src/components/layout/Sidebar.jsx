@@ -34,6 +34,9 @@ import {
   History,
   BarChart2,
   ClipboardCheck,
+  Briefcase,
+  CalendarDays,
+  Banknote,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -111,6 +114,35 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
       label: 'Credential Setup',
       path: '/students/credentials',
       icon: KeyRound,
+    },
+  ];
+
+  // Staff & HRMS Menu Items
+  const staffItems = [
+    {
+      label: 'Staff Directory',
+      path: '/staff',
+      icon: Users,
+    },
+    {
+      label: 'Allocations',
+      path: '/staff/allocations',
+      icon: Layers,
+    },
+    {
+      label: 'Staff Attendance',
+      path: '/staff/attendance',
+      icon: CalendarCheck,
+    },
+    {
+      label: 'Leave Requests',
+      path: '/staff/leaves',
+      icon: CalendarDays,
+    },
+    {
+      label: 'Payroll',
+      path: '/staff/payroll',
+      icon: Banknote,
     },
   ];
 
@@ -195,6 +227,7 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
     location.pathname.startsWith(item.path)
   );
   const isStudentActive = location.pathname.startsWith('/students');
+  const isStaffActive = location.pathname.startsWith('/staff');
   const isAttendanceActive = attendanceItems.some((item) =>
     location.pathname.startsWith(item.path)
   );
@@ -207,6 +240,7 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
 
   const [admissionOpen, setAdmissionOpen] = useState(isAdmissionActive || false);
   const [studentOpen, setStudentOpen] = useState(isStudentActive || false);
+  const [staffOpen, setStaffOpen] = useState(isStaffActive || false);
   const [attendanceOpen, setAttendanceOpen] = useState(isAttendanceActive || false);
   const [academicOpen, setAcademicOpen] = useState(isAcademicActive || false);
   const [admissionSettingsOpen, setAdmissionSettingsOpen] = useState(
@@ -216,6 +250,10 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
   useEffect(() => {
     if (isStudentActive) setStudentOpen(true);
   }, [isStudentActive]);
+
+  useEffect(() => {
+    if (isStaffActive) setStaffOpen(true);
+  }, [isStaffActive]);
 
   useEffect(() => {
     if (isAttendanceActive) setAttendanceOpen(true);
@@ -369,6 +407,62 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
                               !studentItems.some(
                                 (si) =>
                                   si.path !== '/students' &&
+                                  location.pathname.startsWith(si.path)
+                              ))
+                          : location.pathname.startsWith(item.path);
+
+                      return (
+                        <NavLink
+                          key={item.path}
+                          to={item.path}
+                          className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${
+                            isItemActive
+                              ? 'bg-brand-50 text-brand-700 font-semibold border border-brand-200/80 shadow-xs'
+                              : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'
+                          }`}
+                        >
+                          <Icon className="w-3.5 h-3.5 shrink-0" />
+                          <span>{item.label}</span>
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Staff & HRMS Dropdown */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setStaffOpen((prev) => !prev)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
+                    isStaffActive
+                      ? 'text-brand-900 bg-brand-50/70 font-semibold'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Briefcase className="w-4 h-4 shrink-0 text-brand-600" />
+                    <span>Staff & HRMS</span>
+                  </div>
+                  {staffOpen ? (
+                    <ChevronDown className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-slate-700 transition-colors" />
+                  )}
+                </button>
+
+                {staffOpen && (
+                  <div className="mt-1 ml-3 pl-3 border-l-2 border-slate-100 space-y-1">
+                    {staffItems.map((item) => {
+                      const Icon = item.icon;
+                      const isItemActive =
+                        item.path === '/staff'
+                          ? location.pathname === '/staff' ||
+                            (location.pathname.startsWith('/staff/') &&
+                              !staffItems.some(
+                                (si) =>
+                                  si.path !== '/staff' &&
                                   location.pathname.startsWith(si.path)
                               ))
                           : location.pathname.startsWith(item.path);

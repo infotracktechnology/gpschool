@@ -14,6 +14,8 @@ import calendarRoutes from './calendarRoutes.js';
 import staffProfileRoutes from './staffProfileRoutes.js';
 import attendanceRoutes from './attendanceRoutes.js';
 import studentsRoutes from './studentsRoutes.js';
+import staffRoutes from './staffRoutes.js';
+import portalRoutes from './portalRoutes.js';
 
 const router = Router();
 
@@ -39,6 +41,8 @@ router.use('/admissions', admissionsRoutes);
 router.use('/calendar', calendarRoutes);
 
 // Staff Module
+router.use('/staff', staffRoutes);
+router.use('/portal', portalRoutes);
 router.use('/staff-profiles', staffProfileRoutes);
 
 // Attendance Module
