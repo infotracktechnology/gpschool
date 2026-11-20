@@ -17,6 +17,7 @@ import { Sections } from './pages/academics/Sections';
 import { SubjectList } from './pages/academics/SubjectList';
 import { SubjectForm } from './pages/academics/SubjectForm';
 import { AcademicCalendarView } from './pages/AcademicCalendar';
+import { CommunicationWorkspace } from './components/communication/CommunicationWorkspace';
 
 // Admission Management Pages
 import { EnquiryList } from './pages/admissions/EnquiryList';
@@ -82,6 +83,10 @@ export default function App() {
 
             {/* Academic Structure & Subjects Module */}
             <Route path="academics/calendar" element={<AcademicCalendarView />} />
+            <Route path="communication" element={<CommunicationWorkspace />} />
+            <Route path="communication/:tab" element={<CommunicationWorkspace />} />
+            <Route path="communication/:tab/new" element={<CommunicationWorkspace />} />
+            <Route path="communication/:tab/:itemId/edit" element={<CommunicationWorkspace />} />
             <Route path="academics/classes" element={<Classes />} />
             <Route path="academics/sections" element={<Sections />} />
             <Route path="academics/subjects" element={<SubjectList />} />
