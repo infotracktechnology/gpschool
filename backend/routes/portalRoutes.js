@@ -14,6 +14,13 @@ import {
   getPortalPayslipById,
 } from '../controllers/portal/portalController.js';
 
+import {
+  getAssignedClasses,
+  getStudentAttendanceRoster,
+  saveStudentAttendance,
+  copyMorningToAfternoon,
+} from '../controllers/portal/portalStudentAttendanceController.js';
+
 const router = Router();
 
 // All portal endpoints require valid staff/user authentication
@@ -31,11 +38,17 @@ router.post('/leaves/apply', applyPortalLeave);
 router.get('/leave-approvals', getPortalLeaveApprovals);
 router.put('/leave-approvals/:appId/status', updatePortalLeaveApproval);
 
-// Attendance
+// Staff Personal Attendance
 router.get('/attendance', getPortalAttendance);
 
 // Assigned Classes & Subject Allocations
 router.get('/classes', getPortalClasses);
+
+// Student Attendance in Staff Portal (Session-based & Tiered Lock)
+router.get('/student-attendance/assigned-classes', getAssignedClasses);
+router.get('/student-attendance/roster', getStudentAttendanceRoster);
+router.post('/student-attendance/save', saveStudentAttendance);
+router.post('/student-attendance/copy-morning', copyMorningToAfternoon);
 
 // Payslips
 router.get('/payslips', getPortalPayslips);

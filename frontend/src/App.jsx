@@ -66,6 +66,7 @@ import { PortalLeaveApprovals } from './pages/portal/PortalLeaveApprovals';
 import { PortalAttendance } from './pages/portal/PortalAttendance';
 import { PortalClasses } from './pages/portal/PortalClasses';
 import { PortalPayslips } from './pages/portal/PortalPayslips';
+import { PortalStudentAttendance } from './pages/portal/PortalStudentAttendance';
 
 export default function App() {
   return (
@@ -156,6 +157,7 @@ export default function App() {
           {/* Dedicated Staff Portal Routes (Strictly separated from Admin AppLayout) */}
           <Route path="/portal" element={<PortalLayout />}>
             <Route index element={<PortalDashboard />} />
+            <Route path="student-attendance" element={<PortalStudentAttendance />} />
             <Route path="profile" element={<PortalProfile />} />
             <Route path="leaves" element={<PortalLeaves />} />
             <Route path="leave-approvals" element={<PortalLeaveApprovals />} />

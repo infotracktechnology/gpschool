@@ -18,6 +18,7 @@ import {
   Sparkles,
   ShieldCheck,
   CheckCircle2,
+  ClipboardCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -39,6 +40,11 @@ export const PortalLayout = () => {
       path: '/portal',
       end: true,
       icon: LayoutDashboard,
+    },
+    {
+      label: 'Student Attendance',
+      path: '/portal/student-attendance',
+      icon: ClipboardCheck,
     },
     {
       label: 'My Classes & Allocations',
