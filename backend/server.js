@@ -12,6 +12,8 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 import { initDatabase } from './config/database.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import apiRouter from './routes/index.js';
+import staffRoutes from './routes/staffRoutes.js';
+import portalRoutes from './routes/portalRoutes.js';
 
 const app = express();
 app.set('etag', false);
@@ -25,6 +27,8 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(morgan('dev'));
 
 // API Routes
+app.use('/api/staff', staffRoutes);
+app.use('/api/portal', portalRoutes);
 app.use('/api', apiRouter);
 
 // Health check / Root

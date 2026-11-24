@@ -49,16 +49,23 @@ import { TakeAttendance } from './pages/attendance/TakeAttendance';
 import { AttendanceHistory } from './pages/attendance/AttendanceHistory';
 import { MonthlyAttendanceReport } from './pages/attendance/MonthlyAttendanceReport';
 
-// Dedicated Student Web Portal Pages
-import { StudentLayout } from './components/layout/StudentLayout';
-import StudentDashboard from './pages/student/StudentDashboard';
-import StudentHomework from './pages/student/StudentHomework';
-import StudentAssignments from './pages/student/StudentAssignments';
-import StudentAttendance from './pages/student/StudentAttendance';
-import StudentProfileView from './pages/student/StudentProfileView';
-import StudentCalendar from './pages/student/StudentCalendar';
-import StudentAnnouncements from './pages/student/StudentAnnouncements';
-import StudentGallery from './pages/student/StudentGallery';
+// Staff & HRMS Module Pages
+import { StaffDirectory } from './pages/staff/StaffDirectory';
+import { StaffProfile } from './pages/staff/StaffProfile';
+import { StaffAllocations } from './pages/staff/StaffAllocations';
+import { StaffAttendance } from './pages/staff/StaffAttendance';
+import { StaffLeaveManagement } from './pages/staff/StaffLeaveManagement';
+import { StaffPayroll } from './pages/staff/StaffPayroll';
+
+// Dedicated Faculty & Staff Portal Pages
+import { PortalLayout } from './components/layout/PortalLayout';
+import { PortalDashboard } from './pages/portal/PortalDashboard';
+import { PortalProfile } from './pages/portal/PortalProfile';
+import { PortalLeaves } from './pages/portal/PortalLeaves';
+import { PortalLeaveApprovals } from './pages/portal/PortalLeaveApprovals';
+import { PortalAttendance } from './pages/portal/PortalAttendance';
+import { PortalClasses } from './pages/portal/PortalClasses';
+import { PortalPayslips } from './pages/portal/PortalPayslips';
 
 export default function App() {
   return (
@@ -149,6 +156,25 @@ export default function App() {
 
             {/* Attendance Settings Route */}
             <Route path="settings/attendance-timings" element={<AttendanceTimings />} />
+
+            {/* Staff & HRMS Module Routes */}
+            <Route path="staff" element={<StaffDirectory />} />
+            <Route path="staff/:id" element={<StaffProfile />} />
+            <Route path="staff/allocations" element={<StaffAllocations />} />
+            <Route path="staff/attendance" element={<StaffAttendance />} />
+            <Route path="staff/leaves" element={<StaffLeaveManagement />} />
+            <Route path="staff/payroll" element={<StaffPayroll />} />
+          </Route>
+
+          {/* Dedicated Staff Portal Routes (Strictly separated from Admin AppLayout) */}
+          <Route path="/portal" element={<PortalLayout />}>
+            <Route index element={<PortalDashboard />} />
+            <Route path="profile" element={<PortalProfile />} />
+            <Route path="leaves" element={<PortalLeaves />} />
+            <Route path="leave-approvals" element={<PortalLeaveApprovals />} />
+            <Route path="attendance" element={<PortalAttendance />} />
+            <Route path="classes" element={<PortalClasses />} />
+            <Route path="payslips" element={<PortalPayslips />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
