@@ -39,6 +39,29 @@ export const verifyToken = async (req, res, next) => {
   }
 };
 
+export const optionalToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'school_erp_jwt_secret_key_2026_xyz');
+      const users = await query(
+        `SELECT u.id, u.name, u.username, u.role, u.branch_id, u.phone, u.status, b.name AS branch_name
+         FROM users u
+         LEFT JOIN branches b ON u.branch_id = b.id
+         WHERE u.id = ?`,
+        [decoded.id]
+      );
+      if (users.length > 0 && users[0].status === 'active') {
+        req.user = users[0];
+      }
+    }
+  } catch (err) {
+    // Ignore invalid optional tokens
+  }
+  next();
+};
+
 export const requireRoles = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {

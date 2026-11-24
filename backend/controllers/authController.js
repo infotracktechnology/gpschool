@@ -53,6 +53,17 @@ export const login = async (req, res, next) => {
       `SELECT id, code, name FROM academic_years WHERE is_current = TRUE LIMIT 1`
     );
 
+    let studentId = null;
+    if (user.role === 'student') {
+      const stuRows = await query(
+        `SELECT id FROM students WHERE LOWER(admission_no) = ? LIMIT 1`,
+        [user.username.toLowerCase()]
+      );
+      if (stuRows.length > 0) {
+        studentId = stuRows[0].id;
+      }
+    }
+
     const safeUser = {
       id: user.id,
       name: user.name,
@@ -61,6 +72,7 @@ export const login = async (req, res, next) => {
       role: user.role,
       branch_id: user.branch_id,
       branch_name: user.branch_name,
+      student_id: studentId,
       current_academic_year: activeYears[0] || null,
     };
 
@@ -80,9 +92,21 @@ export const getMe = async (req, res, next) => {
       `SELECT id, code, name FROM academic_years WHERE is_current = TRUE LIMIT 1`
     );
 
+    let studentId = req.user.student_id || null;
+    if (!studentId && req.user.role === 'student') {
+      const stuRows = await query(
+        `SELECT id FROM students WHERE LOWER(admission_no) = ? LIMIT 1`,
+        [req.user.username?.toLowerCase() || '']
+      );
+      if (stuRows.length > 0) {
+        studentId = stuRows[0].id;
+      }
+    }
+
     res.json({
       user: {
         ...req.user,
+        student_id: studentId,
         current_academic_year: activeYears[0] || null,
       },
     });

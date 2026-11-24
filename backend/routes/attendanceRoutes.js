@@ -31,7 +31,7 @@ router.patch('/timings/:id/set-active', requireRoles('super_admin', 'admin'), se
 router.post('/bulk-save', requireRoles('super_admin', 'admin', 'teacher'), bulkSaveAttendance);
 router.get('/check', requireRoles('super_admin', 'admin', 'teacher'), checkAttendance);
 router.get('/session-detect', requireRoles('super_admin', 'admin', 'teacher'), detectSession);
-router.get('/monthly-report', requireRoles('super_admin', 'admin', 'teacher'), getMonthlyReport);
-router.get('/', requireRoles('super_admin', 'admin', 'teacher'), getAttendance);
+router.get('/monthly-report', requireRoles('super_admin', 'admin', 'teacher', 'student'), getMonthlyReport);
+router.get('/', requireRoles('super_admin', 'admin', 'teacher', 'student'), getAttendance);
 
 export default router;
