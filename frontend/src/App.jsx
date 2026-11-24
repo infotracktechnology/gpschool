@@ -74,6 +74,19 @@ export default function App() {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
+
+          {/* Dedicated Student Web Portal Routes */}
+          <Route path="/student" element={<StudentLayout />}>
+            <Route index element={<Navigate to="/student/dashboard" replace />} />
+            <Route path="dashboard" element={<StudentDashboard />} />
+            <Route path="homework" element={<StudentHomework />} />
+            <Route path="assignments" element={<StudentAssignments />} />
+            <Route path="attendance" element={<StudentAttendance />} />
+            <Route path="calendar" element={<StudentCalendar />} />
+            <Route path="announcements" element={<StudentAnnouncements />} />
+            <Route path="gallery" element={<StudentGallery />} />
+            <Route path="profile" element={<StudentProfileView />} />
+          </Route>
           <Route path="/" element={<AppLayout />}>
             <Route index element={<Dashboard />} />
             

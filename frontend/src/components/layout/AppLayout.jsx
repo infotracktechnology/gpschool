@@ -23,6 +23,10 @@ export const AppLayout = () => {
     return <Navigate to="/login" replace />;
   }
 
+  if (user.role === 'student') {
+    return <Navigate to="/student/dashboard" replace />;
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-app">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />

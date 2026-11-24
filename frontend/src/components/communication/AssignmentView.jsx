@@ -13,6 +13,32 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 
+const getSubmissionAttachment = (value) => {
+    if (!value) return null;
+    let data = value;
+    if (typeof data === 'string') {
+        try {
+            data = JSON.parse(data);
+        } catch {
+            return {url: data, label: 'Uploaded File',};
+        }
+    }
+    if (Array.isArray(data)) {
+        data = data.find(item =>
+            typeof item === 'string' ||
+            (item && typeof item === 'object' && item.url)
+        );
+    }
+    if (typeof data === 'string') {
+        return { url: data, label: 'Uploaded File' };
+    }
+    if (data && typeof data === 'object') {
+        const url = data.url || data.href || data.path || data.link;
+        if (!url) return null;
+        return { url: String(url), label: data.name || data.file_name || data.text || 'Uploaded File',};
+    }
+    return null;
+};
 export const AssignmentView = ({ branchId, academicYearId, classes, sections, showToast, formAction, editItemId }) => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -1319,6 +1345,7 @@ export const AssignmentView = ({ branchId, academicYearId, classes, sections, sh
                                             {submissionsList.map((sub) => {
                                                 const isSubmitted = sub.submission_status === 'Submitted' || sub.submission_status === 'Late Submitted';
                                                 const isReviewed = sub.submission_status === 'Reviewed' || sub.submission_status === 'Completed';
+                                                const submissionAttachment = getSubmissionAttachment(sub.submission_file_url);
                                                 return (
                                                     <TableRow key={sub.student_id}>
                                                         <TableCell className="py-3 px-3">
@@ -1336,20 +1363,29 @@ export const AssignmentView = ({ branchId, academicYearId, classes, sections, sh
                                                             </Badge>
                                                         </TableCell>
                                                         <TableCell className="py-3 px-3">
-                                                            {sub.submission_file_url ? (
-                                                                <a href={sub.submission_file_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center space-x-1 text-primary font-semibold hover:underline">
-                                                                    <Paperclip className="w-3 h-3"/>
+                                                            {submissionAttachment?.url ? (
+                                                                <a
+                                                                    href={submissionAttachment.url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="inline-flex items-center gap-1 text-blue-600 font-semibold hover:underline"
+                                                                >
+                                                                    <Paperclip className="w-3 h-3" />
+
                                                                     <span className="truncate max-w-[120px]">
-                                                                        {sub.submission_file_name || 'Uploaded File'}
+                                                                        {sub.submission_file_name || submissionAttachment.label}
                                                                     </span>
-                                                                    <ExternalLink className="w-2.5 h-2.5"/>
+
+                                                                    <ExternalLink className="w-3 h-3" />
                                                                 </a>
                                                             ) : sub.offline_completion_date ? (
                                                                 <span className="text-emerald-700 font-medium text-[11px]">
                                                                     Verified {sub.offline_completion_date}
                                                                 </span>
                                                             ) : (
-                                                                <span className="text-muted-foreground text-[11px] italic">Not submitted</span>
+                                                                <span className="text-slate-400 text-[11px]">
+                                                                    Not submitted
+                                                                </span>
                                                             )}
                                                         </TableCell>
                                                         <TableCell className="py-3 px-3">
@@ -1432,23 +1468,28 @@ export const AssignmentView = ({ branchId, academicYearId, classes, sections, sh
 
                         <form onSubmit={handleSaveReview} className="p-5 space-y-4 text-xs">
                             {/* Submission evidence */}
-                            {selectedStudentForReview.submission_file_url && (
+                            {selectedSubmissionAttachment?.url && (
                                 <div className="p-3 bg-purple-50 rounded-xl border border-purple-100 flex items-center justify-between">
                                     <div className="flex items-center space-x-2">
-                                        <Paperclip className="w-4 h-4 text-purple-700"/>
+                                        <Paperclip className="w-4 h-4 text-purple-700" />
+
                                         <div>
                                             <span className="font-bold text-slate-800 block">
-                                                {selectedStudentForReview.submission_file_name || 'Student Uploaded Work'}
+                                                {selectedStudentForReview.submission_file_name ||
+                                                    selectedSubmissionAttachment.label ||
+                                                    'Student Uploaded Work'}
                                             </span>
+
                                             <span className="text-[10px] text-slate-500">
                                                 Notes: {selectedStudentForReview.submission_notes || 'None provided'}
                                             </span>
                                         </div>
                                     </div>
-                                    <a 
-                                        href={selectedStudentForReview.submission_file_url} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer" 
+
+                                    <a
+                                        href={selectedSubmissionAttachment.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         className="px-2.5 py-1 bg-purple-700 text-white rounded-lg text-xs font-semibold hover:bg-purple-800"
                                     >
                                         Open

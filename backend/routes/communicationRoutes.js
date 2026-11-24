@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { communicationController } from '../controllers/communicationController.js';
+import { optionalToken } from '../middleware/authMiddleware.js';
 
 export const communicationRouter = Router();
 
@@ -39,7 +40,7 @@ communicationRouter.get('/dashboard/homework-monitoring', communicationControlle
 communicationRouter.get('/dashboard/assignment-monitoring', communicationController.getAssignmentMonitoring);
 
 // Student / Parent Portal Feed
-communicationRouter.get('/portal/student-feed', communicationController.getStudentPortalFeed);
+communicationRouter.get('/portal/student-feed', optionalToken, communicationController.getStudentPortalFeed);
 
 // Multi-Module Feeds for All Classes
 communicationRouter.get('/feeds', communicationController.getClassModuleFeeds);
