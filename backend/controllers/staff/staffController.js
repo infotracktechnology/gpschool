@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { query } from '../../config/database.js';
 
 /**
@@ -518,7 +519,7 @@ export const createStaff = async (req, res, next) => {
       }
     }
 
-    // Plain text password: phone or DOB DDMMYYYY (no hash)
+    // Initial password: phone or DOB DDMMYYYY (stored as bcrypt hash, plaintext returned once in response)
     const rawPhone = phone || emergency_contact_phone || emergency_contact || '';
     let plainPassword = String(rawPhone).trim();
     if (!plainPassword || plainPassword.length < 4) {
@@ -529,6 +530,7 @@ export const createStaff = async (req, res, next) => {
         plainPassword = 'Staff@123';
       }
     }
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
     // Check existing user
     let existingUser = await query('SELECT id FROM users WHERE LOWER(username) = ?', [empNo.toLowerCase()]);
@@ -543,7 +545,7 @@ export const createStaff = async (req, res, next) => {
         [
           fullName,
           empNo,
-          plainPassword,
+          hashedPassword,
           userRole,
           targetBranchId,
           rawPhone || null,

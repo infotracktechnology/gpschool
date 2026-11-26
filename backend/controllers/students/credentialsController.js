@@ -146,8 +146,8 @@ export const generateCredentialsBatch = async (req, res, next) => {
 
       if (!targetUsername || !password) continue;
 
-      // Plain text password for student credentials ("password hash vendam")
-      const finalPassword = password;
+      // Passwords are stored as bcrypt hashes; the plaintext value is only used for credential printouts
+      const finalPassword = await bcrypt.hash(password, 10);
 
       // Check if user already exists
       const [existing] = await conn.query('SELECT id FROM users WHERE username = ?', [targetUsername]);

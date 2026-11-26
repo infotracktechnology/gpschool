@@ -17,6 +17,11 @@ import studentsRoutes from './studentsRoutes.js';
 import staffRoutes from './staffRoutes.js';
 import portalRoutes from './portalRoutes.js';
 import { communicationRouter } from './communicationRoutes.js';
+import concernRoutes from './concernRoutes.js';
+import visitorRoutes from './visitorRoutes.js';
+import healthRoutes from './healthRoutes.js';
+import certificateRoutes from './certificateRoutes.js';
+import inventoryRoutes from './inventoryRoutes.js';
 
 const router = Router();
 
@@ -52,4 +57,20 @@ router.use('/attendance', attendanceRoutes);
 // Students Module
 router.use('/students', studentsRoutes);
 router.use('/communication', communicationRouter);
+
+// Concerns & Helpdesk Module
+router.use('/concerns', concernRoutes);
+
+// Visitor Management Module
+router.use('/visitors', visitorRoutes);
+
+// Infirmary & Health Management Module
+router.use('/health', healthRoutes);
+
+// Certificate Management Module
+router.use('/certificates', certificateRoutes);
+
+// Inventory Management Module
+router.use('/inventory', inventoryRoutes);
+
 export default router;

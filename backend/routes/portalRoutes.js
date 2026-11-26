@@ -12,6 +12,8 @@ import {
   getPortalClasses,
   getPortalPayslips,
   getPortalPayslipById,
+  getPortalAppointments,
+  updatePortalAppointmentStatus,
 } from '../controllers/portal/portalController.js';
 
 import {
@@ -53,5 +55,9 @@ router.post('/student-attendance/copy-morning', copyMorningToAfternoon);
 // Payslips
 router.get('/payslips', getPortalPayslips);
 router.get('/payslips/:id', getPortalPayslipById);
+
+// Visitor Appointments (Assigned to logged-in staff)
+router.get('/appointments', getPortalAppointments);
+router.patch('/appointments/:id/status', updatePortalAppointmentStatus);
 
 export default router;

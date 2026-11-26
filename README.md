@@ -4,12 +4,13 @@ A comprehensive, enterprise-grade School Management & Human Resource Management 
 
 ---
 
-## 🏛️ System Architecture & Highlights
+## 🏛️ System Architecture: The 3-Portal Ecosystem
 
-Green Park School ERP enforces a **strict architectural separation** between the **Institution Administration ERP** and the **Dedicated Faculty & Staff Self-Service Portal**:
+Green Park School ERP enforces a **strict architectural separation** across three distinct, purpose-built workspaces:
 
-1. **Administration ERP (`/*`)**: Dedicated to Super Admins, Campus Administrators, and Principals for institutional governance, admissions, fee structures, academic master setups, allocations, biometric sync, and payroll disbursement.
-2. **Dedicated Faculty & Staff Portal (`/portal/*`)**: A streamlined, modern workspace designed specifically for teachers and non-teaching staff, completely isolated from administrative settings and menus.
+1. **Administration ERP (`/*`)**: Dedicated to Super Admins, Campus Administrators, and Principals for institutional governance, admissions, fee structures, academic master setups, allocations, biometric sync, payroll disbursement, and helpdesk triage.
+2. **Dedicated Faculty & Staff Portal (`/portal/*`)**: A streamlined workspace designed specifically for teachers and non-teaching staff, isolated from administrative settings and menus.
+3. **Dedicated Student & Parent Portal (`/student/*`)**: An intuitive portal for students and parents featuring homework, assignments, timetable, announcements, gallery, attendance, and self-service helpdesk tickets.
 
 ```
                               ┌────────────────────────────────────────┐
@@ -17,30 +18,50 @@ Green Park School ERP enforces a **strict architectural separation** between the
                               │           (/login page)                │
                               └──────────────────┬─────────────────────┘
                                                  │
-                        ┌────────────────────────┴────────────────────────┐
-                        │                                                 │
-          Role: super_admin / admin                         Role: teacher / staff
-                        │                                                 │
-                        ▼                                                 ▼
-        ┌───────────────────────────────┐               ┌──────────────────────────────────┐
-        │       Admin ERP (/*)          │               │     Dedicated Staff Portal       │
-        │ • Admissions Management       │               │          (/portal/*)             │
-        │ • Student Lifecycle & Groups  │               │ • Dashboard (Punch & Schedule)   │
-        │ • Master Settings & Boards    │               │ • My Profile (Read-Only 360°)    │
-        │ • Staff Directory & Bulk Imp  │               │ • Student Attendance (AM / PM)   │
-        │ • Staff Allocations & Reports │               │ • My Leaves (CL, SL, EL, OD)     │
-        │ • Biometric Attendance (ePush)│               │ • Leave Approvals (Approvers)    │
-        │ • Payroll & Payslip Engine    │               │ • My Attendance & Timetable      │
-        └───────────────────────────────┘               │ • My Classes & Subject Alloc     │
-                                                        │ • My Payslips (Printable PDF)    │
-                                                        └──────────────────────────────────┘
+            ┌────────────────────────────────────┼────────────────────────────────────┐
+            │                                    │                                    │
+  Role: super_admin / admin             Role: teacher / staff                    Role: student
+            │                                    │                                    │
+            ▼                                    ▼                                    ▼
+┌───────────────────────────────┐  ┌──────────────────────────────────┐  ┌─────────────────────────────────┐
+│       Admin ERP (/*)          │  │     Dedicated Staff Portal       │  │     Dedicated Student Portal    │
+│ • Admissions Management       │  │          (/portal/*)             │  │          (/student/*)           │
+│ • Student Lifecycle & Groups  │  │ • Dashboard (Punch & Schedule)   │  │ • Student Dashboard            │
+│ • Master Settings & Boards    │  │ • My Profile (Read-Only 360°)    │  │ • Homework & Assignments       │
+│ • Staff Directory & Bulk Imp  │  │ • Student Attendance (AM / PM)   │  │ • Attendance & Calendar        │
+│ • Staff Allocations & Reports │  │ • My Leaves (CL, SL, EL, OD)     │  │ • Announcements & Gallery      │
+│ • Biometric Attendance (ePush)│  │ • Leave Approvals (Approvers)    │  │ • My Profile                   │
+│ • Payroll & Payslip Engine    │  │ • My Attendance & Timetable      │  │ • Helpdesk & Concerns          │
+│ • Concern Desk (/concerns)    │  │ • My Classes & Subject Alloc     │  │   (/student/concerns)          │
+└───────────────────────────────┘  │ • My Payslips (Printable PDF)    │  └─────────────────────────────────┘
+                                   │ • Concerns (/portal/concerns)    │
+                                   └──────────────────────────────────┘
 ```
 
 ---
 
 ## 🚀 Key Modules & Capabilities
 
-### 1. Student Attendance in Staff Portal (`/portal/student-attendance`)
+### 1. 3-Portal Concern Management Suite (Helpdesk & Grievance Redressal)
+* **Student Portal Surface (`/student/concerns`)**:
+  * **Ticket Tracking**: Live list of student/parent concerns with Ticket No (`TKT-YYYY-XXXX`), category badges, priority indicators with SLA countdowns, and real-time status badges (`Open`, `In Progress`, `Resolved`, `Closed`).
+  * **Raise Concern Modal**: Fast entry form supporting 6 major institutional categories: *Academic*, *Transport*, *Fee & Accounts*, *Facilities & Infrastructure*, *Canteen & Food*, *Safety & Security*.
+  * **Resolution Review**: View the school's official resolution notes and action timestamp upon ticket resolution.
+* **Staff Portal Surface (`/portal/concerns`)**:
+  * **Tab 1 ("Assigned to Me")**: Resolve student and departmental tickets routed to this faculty member. Action buttons to start investigation (`In Progress`), submit official resolution notes, or escalate.
+  * **Tab 2 ("My Raised Grievances")**: Track internal workplace & HR requests raised by this staff member.
+  * **Raise Concern Modal**: Toggle to either **"Raise Staff Grievance"** or **"Log on Behalf of Student"** (picking from their assigned classes).
+* **Admin ERP Surface (`/concerns`)**:
+  * **Executive Metric Cards**: Real-time counters for Total Tickets, Open/Triage, In Progress, Resolved, and Overdue SLA / Escalated.
+  * **Multi-Filter Controls**: Toggle between Combined All Tickets, Student Concerns, and Staff Workplace Grievances; filter by Department, Priority, Status, and Search.
+  * **Management Actions**: 1-click Department/Staff Reassignment, Manual Escalation to Principal with justification note, and Final Resolution submission.
+* **SLA & Escalation Rules**:
+  * **Tiered Priority SLAs**: Urgent (12h), High (24h), Medium (48h), Low (72h) with red overdue badges.
+  * **Hybrid Escalation**: Automatic escalation flag if overdue past SLA + Manual "Escalate to Principal" button.
+
+---
+
+### 2. Student Attendance in Staff Portal (`/portal/student-attendance`)
 * **Session-Based Attendance**:
   * **Smart Session Tabs**: Dedicated `☀️ Morning (AM)` (Session 1) and `⛅ Afternoon (PM)` (Session 2) tabs.
   * **Auto-Timings Detection**: Automatically selects the active session based on real-time clock and school timings.
@@ -64,7 +85,7 @@ Green Park School ERP enforces a **strict architectural separation** between the
 
 ---
 
-### 2. Staff Allocations Suite (`/staff/allocations`)
+### 3. Staff Allocations Suite (`/staff/allocations`)
 * **Tab 1: Class Teachers**:
   * **Interactive Assignment Workflow**: Select staff type $\rightarrow$ search faculty $\rightarrow$ click `+` $\rightarrow$ select Affiliation Board (CBSE, ICSE, State), Class, Section, and Role (Primary or Co-Class Teacher) $\rightarrow$ Assign.
   * **Real-time Conflict Checking**: Automated warning if a teacher is already designated as Class Teacher for another section, with 1-click replacement confirmation.
@@ -77,7 +98,7 @@ Green Park School ERP enforces a **strict architectural separation** between the
 
 ---
 
-### 3. Staff Bulk-Import Engine (`/staff`)
+### 4. Staff Bulk-Import Engine (`/staff`)
 * **Dual Template Downloads**:
   * **Basic Template (10 columns)**: Core fields for rapid onboarding (`first_name`, `last_name`, `gender`, `staff_type`, `department`, `designation`, `phone`, `email`, `date_of_joining`, `branch_code`).
   * **Full 360° Template (25 columns)**: Extended employee attributes including PAN, Aadhaar, DOB, blood group, qualifications, bank account, IFSC, PF UAN, ESI IP, and basic pay.
@@ -89,21 +110,22 @@ Green Park School ERP enforces a **strict architectural separation** between the
 
 ---
 
-### 4. Dedicated Faculty & Staff Portal (`/portal/*`)
+### 5. Dedicated Faculty & Staff Portal (`/portal/*`)
 * **Custom Portal Layout (`PortalLayout`)**: Distinct emerald/slate aesthetic tailored for mobile and desktop screens, strictly separate from administrative navigation.
-* **8 Portal Pages**:
-  1. **Dashboard (`/portal`)**: Personalized welcome, today's biometric punch status (Check-in / Check-out timestamps), teaching timetable schedule for the day, and leave quota gauges.
+* **Pages**:
+  1. **Dashboard (`/portal`)**: Personalized welcome, today's biometric punch status, teaching timetable, and leave quota gauges.
   2. **Student Attendance (`/portal/student-attendance`)**: Session-based morning/afternoon attendance entry, edit lock, and FCM absent alerts.
-  3. **My Profile (`/portal/profile`)**: Read-only 360° dossier across 5 tabs (Personal & Identity, Employment, Qualification, Bank & Statutory, Documents) with a printable employee dossier action.
-  4. **My Leaves (`/portal/leaves`)**: Live quota cards (CL, SL, EL, OD), "Apply for Leave" modal with duration calculation, substitute teacher handover note, and request history timeline.
-  5. **Leave Approvals (`/portal/leave-approvals`)**: Visible exclusively to authorized approvers (Principals, Campus Administrators, Wing/Grade Coordinators). Campus- and wing-scoped review queue to **Approve** or **Reject** pending applications with reviewer remarks.
-  6. **My Attendance (`/portal/attendance`)**: Monthly calendar register of daily punch times, attendance statuses, working days, and attendance percentage.
-  7. **My Classes & Allocations (`/portal/classes`)**: Primary Class Teacher leadership card, subject allocations, and weekly teaching timetable matrix (Monday to Friday).
-  8. **My Payslips (`/portal/payslips`)**: Historical salary register, earnings and deductions breakdown, and official printable branded salary slip modal with figures and words in Indian currency.
+  3. **Concerns & Helpdesk (`/portal/concerns`)**: Resolve assigned student concerns and track personal staff grievances.
+  4. **My Profile (`/portal/profile`)**: Read-only 360° dossier across 5 tabs (Personal, Employment, Qualification, Bank & Statutory, Documents).
+  5. **My Leaves (`/portal/leaves`)**: Live quota cards (CL, SL, EL, OD), "Apply for Leave" modal with duration calculation, and history timeline.
+  6. **Leave Approvals (`/portal/leave-approvals`)**: Visible exclusively to authorized approvers (Principals, Admins, Coordinators/HODs).
+  7. **My Attendance (`/portal/attendance`)**: Monthly calendar register of daily punch times, attendance statuses, working days, and attendance percentage.
+  8. **My Classes & Allocations (`/portal/classes`)**: Primary Class Teacher leadership card, subject allocations, and weekly teaching timetable matrix.
+  9. **My Payslips (`/portal/payslips`)**: Historical salary register, earnings and deductions breakdown, and official printable branded salary slip modal.
 
 ---
 
-### 5. Staff Payroll & Statutory Disbursal Engine (`/staff/payroll`)
+### 6. Staff Payroll & Statutory Disbursal Engine (`/staff/payroll`)
 * Monthly institutional payroll generation for teaching and non-teaching staff.
 * **Statutory Loss of Pay (LOP) Formula**:
   $$\text{LOP Deduction} = \left(\frac{\text{Gross Salary}}{\text{Total Days in Calendar Month}}\right) \times \text{LOP Absent Days}$$
@@ -132,6 +154,7 @@ The login screen (`http://localhost:3000/login`) features **1-Click Instant Demo
 |---|---|---|---|
 | **Super Admin** | `admin@schoolerp.com` | `Admin@123` | Admin ERP Dashboard (`/`) |
 | **Teacher Portal** | `GPS-T-001` | `9840123456` | Dedicated Staff Portal (`/portal`) |
+| **Student Portal** | `GPS/2026/001` | `9845012345` | Dedicated Student Portal (`/student`) |
 
 ---
 

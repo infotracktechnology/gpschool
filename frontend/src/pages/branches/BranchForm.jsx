@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Building2, ArrowLeft, Save, AlertCircle, Upload, Image as ImageIcon, X } from 'lucide-react';
+import { Building2, ArrowLeft, Save, AlertCircle, Upload, Image as ImageIcon, X, Loader2 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const BranchForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { fetchBranches } = useAuth();
   const isEdit = Boolean(id);
 
   const [boards, setBoards] = useState([]);
@@ -23,6 +25,7 @@ export const BranchForm = () => {
   });
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -64,18 +67,35 @@ export const BranchForm = () => {
     init();
   }, [id, isEdit]);
 
-  const handleFileUpload = (e) => {
+  const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a valid image file');
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/svg+xml'];
+    if (!file.type.startsWith('image/') && !allowedTypes.includes(file.type)) {
+      setError('Please select a valid PNG, JPG, SVG, WEBP, or GIF image file');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setFormData((prev) => ({ ...prev, logo: event.target?.result || '' }));
-    };
-    reader.readAsDataURL(file);
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Logo image must be smaller than 5 MB');
+      return;
+    }
+
+    try {
+      setError('');
+      setUploadingLogo(true);
+      const uploadPayload = new FormData();
+      uploadPayload.append('logo', file);
+      const res = await api.upload('/settings/branches/upload-logo', uploadPayload);
+      if (res.url) {
+        setFormData((prev) => ({ ...prev, logo: res.url }));
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to upload branch logo');
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -89,6 +109,7 @@ export const BranchForm = () => {
       } else {
         await api.post('/settings/branches', formData);
       }
+      await fetchBranches();
       navigate('/settings/branches');
     } catch (err) {
       setError(err.message || 'Failed to save branch');
@@ -253,19 +274,39 @@ export const BranchForm = () => {
 
               <div>
                 <label className="block text-xs font-semibold text-heading mb-1.5">
-                  Or Upload Logo Image
+                  Or Upload Logo Image (Saved to Server)
                 </label>
-                <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium cursor-pointer transition-colors">
-                  <Upload className="w-3.5 h-3.5 text-brand-600" />
-                  <span>Choose Image File...</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </label>
-                <span className="text-[11px] text-muted ml-3">PNG, JPG, SVG or WebP recommended</span>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <label
+                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-border bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium cursor-pointer transition-colors ${
+                      uploadingLogo ? 'opacity-60 pointer-events-none' : ''
+                    }`}
+                  >
+                    {uploadingLogo ? (
+                      <Loader2 className="w-3.5 h-3.5 text-brand-600 animate-spin" />
+                    ) : (
+                      <Upload className="w-3.5 h-3.5 text-brand-600" />
+                    )}
+                    <span>{uploadingLogo ? 'Uploading...' : 'Choose Image File...'}</span>
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                      onChange={handleFileUpload}
+                      disabled={uploadingLogo}
+                      className="hidden"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, logo: '/assets/logo.png' }))}
+                    className="px-3 py-2 rounded-xl border border-brand-200 bg-brand-50/70 hover:bg-brand-100 text-brand-700 text-xs font-semibold transition-colors"
+                  >
+                    Use Default School Logo
+                  </button>
+                </div>
+                <p className="text-[11px] text-muted mt-1.5">
+                  PNG, JPG, SVG, WEBP or GIF up to 5 MB
+                </p>
               </div>
             </div>
           </div>
@@ -355,7 +396,7 @@ export const BranchForm = () => {
           </Link>
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || uploadingLogo}
             className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-semibold bg-brand-600 hover:bg-brand-700 text-white shadow-md shadow-brand-600/20 transition-all disabled:opacity-50"
           >
             <Save className="w-4 h-4" />

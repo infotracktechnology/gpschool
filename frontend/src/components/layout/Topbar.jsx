@@ -161,9 +161,17 @@ export const Topbar = ({ onToggleSidebar = () => {} }) => {
               className="flex items-center gap-2 bg-indigo-50/80 hover:bg-indigo-100/80 text-indigo-700 border border-indigo-200/90 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               title="Switch Active Campus Branch"
             >
-              <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
-                <Building className="w-3.5 h-3.5" />
-              </div>
+              {selectedBranch?.id !== 'all' && selectedBranch?.logo ? (
+                <img
+                  src={selectedBranch.logo}
+                  alt={selectedBranch.name || 'Branch'}
+                  className="w-6 h-6 rounded-lg object-contain bg-white border border-indigo-200 p-0.5 shrink-0"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                  <Building className="w-3.5 h-3.5" />
+                </div>
+              )}
               <div className="text-left hidden xs:block sm:block max-w-[140px]">
                 <span className="block text-[10px] text-indigo-600/80 font-medium leading-none">
                   Campus Branch
@@ -250,7 +258,15 @@ export const Topbar = ({ onToggleSidebar = () => {} }) => {
                           }`}
                         >
                           <div className="flex items-center gap-2 min-w-0">
-                            <Building className="w-4 h-4 text-slate-400 shrink-0" />
+                            {b.logo ? (
+                              <img
+                                src={b.logo}
+                                alt={b.name}
+                                className="w-6 h-6 rounded-md object-contain bg-white border border-slate-200 p-0.5 shrink-0"
+                              />
+                            ) : (
+                              <Building className="w-4 h-4 text-slate-400 shrink-0" />
+                            )}
                             <div className="truncate">
                               <div className="font-semibold text-xs truncate flex items-center gap-1.5">
                                 <span className="truncate">{b.name}</span>
@@ -279,9 +295,17 @@ export const Topbar = ({ onToggleSidebar = () => {} }) => {
         ) : (
           /* Branch Admin / Staff: Clean Branch Badge */
           <div className="flex items-center gap-2 bg-slate-50 text-slate-700 border border-slate-200 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-medium shadow-xs">
-            <div className="w-6 h-6 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">
-              <Building className="w-3.5 h-3.5" />
-            </div>
+            {selectedBranch?.logo ? (
+              <img
+                src={selectedBranch.logo}
+                alt={selectedBranch.name || 'Branch'}
+                className="w-6 h-6 rounded-lg object-contain bg-white border border-slate-200 p-0.5 shrink-0"
+              />
+            ) : (
+              <div className="w-6 h-6 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center shrink-0">
+                <Building className="w-3.5 h-3.5" />
+              </div>
+            )}
             <div className="text-left hidden xs:block sm:block max-w-[160px]">
               <span className="block text-[10px] text-slate-500 font-medium leading-none">
                 Branch

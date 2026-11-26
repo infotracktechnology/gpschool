@@ -32,5 +32,6 @@ export const initDatabase = async () => {
     connection.release();
   } catch (error) {
     console.error('[Database] Connection failed:', error.message);
+    throw error;
   }
 };

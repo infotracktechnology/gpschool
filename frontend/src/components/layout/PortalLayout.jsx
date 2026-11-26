@@ -19,6 +19,9 @@ import {
   ShieldCheck,
   CheckCircle2,
   ClipboardCheck,
+  LifeBuoy,
+  Users,
+  HeartPulse,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -75,6 +78,21 @@ export const PortalLayout = () => {
       label: 'My Payslips',
       path: '/portal/payslips',
       icon: Banknote,
+    },
+    {
+      label: 'Visitor Appointments',
+      path: '/portal/visitors',
+      icon: Users,
+    },
+    {
+      label: 'Infirmary & Health Desk',
+      path: '/portal/health',
+      icon: HeartPulse,
+    },
+    {
+      label: 'Concerns & Helpdesk',
+      path: '/portal/concerns',
+      icon: LifeBuoy,
     },
     {
       label: 'My 360° Profile',

@@ -915,8 +915,21 @@ export const communicationController = {
     try {
       const { assignmentId } = req.params;
       const { student_id, submission_file_url, file_url, submission_text } = req.body;
-      const sId = Number(student_id);
+      let sId = Number(student_id);
       const aId = Number(assignmentId);
+
+      // Students may only submit work as themselves
+      if (req.user?.role === 'student') {
+        const ownRows = await pool.query(
+          `SELECT id FROM students WHERE LOWER(admission_no) = ? LIMIT 1`,
+          [String(req.user.username || '').toLowerCase()]
+        );
+        const ownId = ownRows[0]?.length ? Number(ownRows[0][0].id) : null;
+        if (!ownId) {
+          return res.status(403).json({ success: false, message: 'Student profile not found' });
+        }
+        sId = ownId;
+      }
 
       if (!sId || !aId) {
         return res.status(400).json({ success: false, message: 'student_id and assignmentId are required' });

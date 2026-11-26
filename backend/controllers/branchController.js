@@ -114,6 +114,23 @@ export const updateBranch = async (req, res, next) => {
   }
 };
 
+export const uploadBranchLogoHandler = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Please select a valid image file to upload' });
+    }
+    const url = `/uploads/branches/${req.file.filename}`;
+    res.status(201).json({
+      success: true,
+      message: 'Branch logo uploaded successfully',
+      url,
+      filename: req.file.filename,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const deleteBranch = async (req, res, next) => {
   try {
     const { id } = req.params;

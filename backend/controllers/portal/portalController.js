@@ -660,3 +660,55 @@ export const getPortalPayslipById = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * GET /api/portal/appointments
+ * Get visitor appointments for the logged-in staff member
+ */
+export const getPortalAppointments = async (req, res, next) => {
+  try {
+    const staff = await getLoggedInStaffProfile(req.user?.id, req.user?.phone);
+    if (!staff) {
+      return res.status(404).json({ success: false, message: 'Staff profile not found' });
+    }
+
+    const appointments = await query(
+      `SELECT * FROM visitor_appointments 
+       WHERE person_to_meet_id = ? OR person_to_meet_name LIKE ?
+       ORDER BY appointment_date DESC, appointment_time ASC`,
+      [staff.id, `%${staff.full_name}%`]
+    );
+
+    res.json({ success: true, appointments });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PATCH /api/portal/appointments/:id/status
+ * Staff member approves/rejects their appointment
+ */
+export const updatePortalAppointmentStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, staff_remarks } = req.body;
+    const staff = await getLoggedInStaffProfile(req.user?.id, req.user?.phone);
+
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Status must be approved or rejected' });
+    }
+
+    await query(
+      `UPDATE visitor_appointments 
+       SET status = ?, staff_remarks = ?, approved_by = ?
+       WHERE id = ?`,
+      [status, staff_remarks || null, staff ? staff.user_id : req.user?.id, id]
+    );
+
+    const [updated] = await query('SELECT * FROM visitor_appointments WHERE id = ?', [id]);
+    res.json({ success: true, message: `Appointment ${status} successfully`, appointment: updated });
+  } catch (error) {
+    next(error);
+  }
+};

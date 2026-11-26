@@ -29,8 +29,8 @@ export const login = async (req, res, next) => {
       return res.status(403).json({ message: 'Account is inactive. Please contact your administrator.' });
     }
 
-    // Support both plain text passwords (e.g. for student logins: "password hash vendam")
-    // and bcrypt hashed passwords (for staff/admin accounts)
+    // Support both plain text passwords (legacy student/staff accounts)
+    // and bcrypt hashed passwords (admin accounts & newly generated credentials)
     let isMatch = false;
     if (user.password && (user.password.startsWith('$2b$') || user.password.startsWith('$2a$'))) {
       isMatch = await bcrypt.compare(password, user.password);
@@ -44,7 +44,7 @@ export const login = async (req, res, next) => {
 
     const token = jwt.sign(
       { id: user.id, role: user.role, branch_id: user.branch_id },
-      process.env.JWT_SECRET || 'school_erp_jwt_secret_key_2026_xyz',
+      process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 

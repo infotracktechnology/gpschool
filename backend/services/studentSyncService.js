@@ -1,3 +1,5 @@
+import bcrypt from 'bcryptjs';
+
 /**
  * Syncs admitted students into the master `students` and `student_enrollments` tables.
  * Can be executed inside an existing database transaction.
@@ -150,7 +152,7 @@ export async function syncAdmissionToStudent(conn, data) {
   }
 
   // Auto-sync login account in `users` table:
-  // Username = admission_no, Password = DOB in DDMMYYYY format, Plain-text ("password hash vendam")
+  // Username = admission_no, Password = DOB in DDMMYYYY format (stored as bcrypt hash)
   let studentPassword = 'Student@123';
   if (dob) {
     const dobStr = typeof dob === 'string' ? dob.split('T')[0] : new Date(dob).toISOString().split('T')[0];
@@ -161,6 +163,7 @@ export async function syncAdmissionToStudent(conn, data) {
   } else if (admission_no) {
     studentPassword = admission_no.replace(/[^a-zA-Z0-9]/g, '');
   }
+  studentPassword = await bcrypt.hash(studentPassword, 10);
 
   try {
     await conn.query(

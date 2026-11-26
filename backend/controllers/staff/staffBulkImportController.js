@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import { query } from '../../config/database.js';
 
@@ -370,12 +371,13 @@ export const executeBulkImport = async (req, res, next) => {
         const nextSeq = maxSeq + 1;
         const empNo = `${prefix}${String(nextSeq).padStart(3, '0')}`;
 
-        // Plain text password (phone or DOB DDMMYYYY)
+        // Password derived from phone or DOB DDMMYYYY (stored as bcrypt hash)
         let plainPassword = String(r.phone || '').trim();
         if (!plainPassword || plainPassword.length < 4) {
           const dobFormatted = formatDobToDDMMYYYY(r.dob);
           plainPassword = dobFormatted || 'Staff@123';
         }
+        const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
         const fullName = `${r.first_name || ''} ${r.last_name || ''}`.trim() || empNo;
         const userRole = isTeaching ? 'teacher' : 'staff';
@@ -384,7 +386,7 @@ export const executeBulkImport = async (req, res, next) => {
         const userResult = await query(
           `INSERT INTO users (name, username, password, role, branch_id, phone, status)
            VALUES (?, ?, ?, ?, ?, ?, 'active')`,
-          [fullName, empNo, plainPassword, userRole, targetBranchId, r.phone || null]
+          [fullName, empNo, hashedPassword, userRole, targetBranchId, r.phone || null]
         );
         const userId = userResult.insertId;
 

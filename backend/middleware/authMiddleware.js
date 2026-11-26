@@ -9,7 +9,7 @@ export const verifyToken = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'school_erp_jwt_secret_key_2026_xyz');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     const users = await query(
       `SELECT u.id, u.name, u.username, u.role, u.branch_id, u.phone, u.status, b.name AS branch_name
@@ -44,7 +44,7 @@ export const optionalToken = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'school_erp_jwt_secret_key_2026_xyz');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const users = await query(
         `SELECT u.id, u.name, u.username, u.role, u.branch_id, u.phone, u.status, b.name AS branch_name
          FROM users u

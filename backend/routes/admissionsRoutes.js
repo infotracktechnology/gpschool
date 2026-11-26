@@ -51,8 +51,10 @@ import {
 
 const router = Router();
 
-// Protect all admission routes
-router.use(verifyToken);
+const ADMISSIONS_ROLES = ['super_admin', 'admin', 'principal', 'staff'];
+
+// Protect all admission routes — admissions data is not for teachers or students
+router.use(verifyToken, requireRoles(...ADMISSIONS_ROLES));
 
 // --- Settings: Workflow ---
 router.get('/settings/workflow/:branchId', getBranchWorkflow);

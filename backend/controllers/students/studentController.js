@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs';
 import { pool, query } from '../../config/database.js';
 import { getNextSequenceNumber } from '../../services/sequenceService.js';
 
@@ -423,8 +424,8 @@ export const createStudent = async (req, res, next) => {
     }
 
     // Auto-create student portal credentials in users table:
-    // Username = admission_no, Password = DOB in DDMMYYYY format, Plain-text ("password hash vendam")
-    let studentPassword = 'Student@123';
+    // Username = admission_no, Password = DOB in DDMMYYYY format (stored as bcrypt hash)
+    let studentPassword = null;
     if (dob) {
       const dobStr = typeof dob === 'string' ? dob.split('T')[0] : new Date(dob).toISOString().split('T')[0];
       const parts = dobStr.split('-');
@@ -433,6 +434,9 @@ export const createStudent = async (req, res, next) => {
       }
     } else if (finalAdmissionNo) {
       studentPassword = finalAdmissionNo.replace(/[^a-zA-Z0-9]/g, '');
+    }
+    if (studentPassword) {
+      studentPassword = await bcrypt.hash(studentPassword, 10);
     }
 
     try {

@@ -123,6 +123,12 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem('school_erp_selected_branch', JSON.stringify(userBranch));
         } else {
           setSelectedBranch((prev) => {
+            if (prev?.id === 'all') return prev;
+            if (prev?.id && branchList.some((b) => b.id === prev.id)) {
+              const updated = branchList.find((b) => b.id === prev.id);
+              localStorage.setItem('school_erp_selected_branch', JSON.stringify(updated));
+              return updated;
+            }
             if (prev) return prev;
             const defaultBranch = branchList[0] || ALL_CAMPUSES_BRANCH;
             if (defaultBranch) {
