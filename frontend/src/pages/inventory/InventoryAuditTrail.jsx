@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { ScrollText, Search } from 'lucide-react';
 import { inventoryService } from '../../services/inventoryService';
+import { useAuth } from '../../context/AuthContext';
 import { PageHeader, EmptyState, cardCls, inputCls, fmtDate } from './_shared';
 
 export const InventoryAuditTrail = () => {
+  const { selectedBranch } = useAuth();
+  const branchId = selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : '';
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [entityType, setEntityType] = useState('');
@@ -12,11 +15,11 @@ export const InventoryAuditTrail = () => {
   const load = async () => {
     try {
       setLoading(true);
-      const res = await inventoryService.getAuditTrail({ entity_type: entityType, search });
+      const res = await inventoryService.getAuditTrail({ entity_type: entityType, search, ...(branchId ? { branch_id: branchId } : {}) });
       if (res.success) setEntries(res.audit_trail || []);
     } finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, [entityType, search]);
+  useEffect(() => { load(); }, [entityType, search, branchId]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">

@@ -24,7 +24,7 @@ import {
 
 export const CertificateHistory = () => {
   const navigate = useNavigate();
-  const { selectedBranch } = useAuth();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
 
   const [certificates, setCertificates] = useState([]);
   const [summary, setSummary] = useState({});
@@ -39,7 +39,7 @@ export const CertificateHistory = () => {
 
   useEffect(() => {
     fetchHistory();
-  }, [typeFilter, statusFilter, recipientFilter, dateFrom, dateTo, selectedBranch?.id]);
+  }, [typeFilter, statusFilter, recipientFilter, dateFrom, dateTo, selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchHistory = async () => {
     try {
@@ -50,7 +50,8 @@ export const CertificateHistory = () => {
       if (recipientFilter) params.set('recipient_type', recipientFilter);
       if (dateFrom) params.set('date_from', dateFrom);
       if (dateTo) params.set('date_to', dateTo);
-      if (selectedBranch?.id) params.set('branch_id', selectedBranch.id);
+      if (selectedBranch?.id && selectedBranch.id !== 'all') params.set('branch_id', selectedBranch.id);
+      if (selectedAcademicYear?.id) params.set('academic_year_id', selectedAcademicYear.id);
       if (search.trim()) params.set('search', search.trim());
 
       const res = await api.get(`/certificates?${params.toString()}`);

@@ -50,10 +50,10 @@ export const Login = () => {
     {
       id: 'teacher',
       label: 'Teacher Portal',
-      badge: 'GPS-T-001',
+      badge: 'GPSH-T-001',
       desc: 'Faculty & Attendance Suite',
-      username: 'GPS-T-001',
-      pass: '9840123456',
+      username: 'GPSH-T-001',
+      pass: '9876543210',
     },
     {
       id: 'branch_admin',
@@ -87,8 +87,10 @@ export const Login = () => {
 
     try {
       const data = await login(username, password);
-      const role = data?.user?.role || (username.startsWith('GPS-T') ? 'teacher' : 'admin');
-      if (role === 'teacher' || role === 'staff') {
+      const role = data?.user?.role || (username.includes('-T-') ? 'teacher' : 'admin');
+      if (role === 'student') {
+        navigate('/student/dashboard');
+      } else if (role === 'teacher' || role === 'staff') {
         navigate('/portal');
       } else {
         navigate('/');

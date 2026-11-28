@@ -13,7 +13,7 @@ export const CommunicationWorkspace = ({ initialSubmenu = 'homework', onSubmenuC
     const { tab, itemId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
-    const { user, selectedAcademicYear } = useAuth();
+    const { user, selectedBranch, selectedAcademicYear } = useAuth();
 
     // Detect form mode from URL
     const isNewForm = location.pathname.endsWith('/new');
@@ -48,19 +48,27 @@ export const CommunicationWorkspace = ({ initialSubmenu = 'homework', onSubmenuC
     };
     // Branch & Academic Year Scoping State
     const [branches, setBranches] = useState([]);
-    const [selectedBranchId, setSelectedBranchId] = useState(1);
+    const [selectedBranchId, setSelectedBranchId] = useState(() =>
+        selectedBranch?.id && selectedBranch.id !== 'all' ? Number(selectedBranch.id) : 0
+    );
     const [academicYears, setAcademicYears] = useState([]);
-    const [selectedAcademicYearId, setSelectedAcademicYearId] = useState(() => Number(selectedAcademicYear?.id || 1));
+    const [selectedAcademicYearId, setSelectedAcademicYearId] = useState(() => Number(selectedAcademicYear?.id || 0));
     // Dynamic Class & Section Scoping
     const [classes, setClasses] = useState([]);
     const [sections, setSections] = useState([]);
     const [isLoadingContext, setIsLoadingContext] = useState(true);
 
     useEffect(() => {
+        if (selectedBranch?.id && selectedBranch.id !== 'all') {
+            setSelectedBranchId(Number(selectedBranch.id));
+        }
+    }, [selectedBranch?.id]);
+
+    useEffect(() => {
         if (selectedAcademicYear?.id) {
             setSelectedAcademicYearId(Number(selectedAcademicYear.id));
         }
-    }, [selectedAcademicYear]);
+    }, [selectedAcademicYear?.id]);
     // Toast Notification System
     const [toast, setToast] = useState(null);
     const showToast = useCallback((message, type = 'info') => {
@@ -76,8 +84,10 @@ export const CommunicationWorkspace = ({ initialSubmenu = 'homework', onSubmenuC
                 const branchList = await getBranches();
                 setBranches(branchList);
                 if (branchList.length > 0) {
-                    const defaultBranch = branchList.find((b) => b.branch_type === 'Main Branch') || branchList[0];
-                    setSelectedBranchId(defaultBranch.id);
+                    const preferred = selectedBranch?.id && selectedBranch.id !== 'all'
+                        ? branchList.find((b) => Number(b.id) === Number(selectedBranch.id))
+                        : (branchList.find((b) => b.branch_type === 'Main Branch') || branchList[0]);
+                    if (preferred) setSelectedBranchId(Number(preferred.id));
                 }
             }
             catch (err) {
@@ -97,9 +107,11 @@ export const CommunicationWorkspace = ({ initialSubmenu = 'homework', onSubmenuC
                 setAcademicYears(res.data);
                 let effectiveYearId = null;
                 if (res.data.length > 0) {
-                    const currentYear = res.data.find((y) => y.is_current) || res.data[0];
-                    setSelectedAcademicYearId(currentYear.id);
-                    effectiveYearId = currentYear.id;
+                    const chosenYear = (selectedAcademicYear?.id && res.data.find((y) => Number(y.id) === Number(selectedAcademicYear.id)))
+                        || res.data.find((y) => y.is_current)
+                        || res.data[0];
+                    setSelectedAcademicYearId(chosenYear.id);
+                    effectiveYearId = chosenYear.id;
                 }
                 // Fetch sections and classes for this branch and academic year
                 const secRes = await getSections(selectedBranchId, effectiveYearId);

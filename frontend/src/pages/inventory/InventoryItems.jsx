@@ -17,6 +17,10 @@ export const InventoryItems = () => {
   const [lowStock, setLowStock] = useState(params.get('low_stock') === 'true');
   const [branchId, setBranchId] = useState(params.get('branch_id') || (selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : ''));
 
+  useEffect(() => {
+    setBranchId(selectedBranch?.id && selectedBranch.id !== 'all' ? String(selectedBranch.id) : '');
+  }, [selectedBranch?.id]);
+
   const load = async () => {
     try {
       setLoading(true);

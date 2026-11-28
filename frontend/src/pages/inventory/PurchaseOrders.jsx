@@ -2,12 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Plus, Search, Eye, Send, Trash2, XCircle } from 'lucide-react';
 import { inventoryService } from '../../services/inventoryService';
+import { useAuth } from '../../context/AuthContext';
 import { PageHeader, StatusBadge, EmptyState, btnPrimary, btnDanger, cardCls, inputCls, fmtMoney, fmtDate } from './_shared';
 
 const STATUSES = ['draft', 'sent', 'partial_received', 'received', 'cancelled'];
 
 export const PurchaseOrders = () => {
   const navigate = useNavigate();
+  const { selectedBranch } = useAuth();
+  const branchId = selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : '';
   const [pos, setPos] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,14 +22,14 @@ export const PurchaseOrders = () => {
     try {
       setLoading(true);
       const [poRes, supRes] = await Promise.all([
-        inventoryService.getPOs({ status, supplier_id: supplierId, search }),
+        inventoryService.getPOs({ status, supplier_id: supplierId, search, ...(branchId ? { branch_id: branchId } : {}) }),
         inventoryService.getSuppliers({ status: 'active' }),
       ]);
       if (poRes.success) setPos(poRes.purchase_orders || []);
       if (supRes.success) setSuppliers(supRes.suppliers || []);
     } finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, [status, supplierId, search]);
+  useEffect(() => { load(); }, [status, supplierId, search, branchId]);
 
   const handleSend = async (po) => {
     if (!window.confirm(`Send PO ${po.po_number} to supplier?`)) return;

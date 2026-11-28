@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Save, Loader2 } from 'lucide-react';
 import { inventoryService } from '../../services/inventoryService';
+import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { PageHeader, Field, inputCls, btnPrimary, btnSecondary, cardCls } from './_shared';
 
@@ -25,8 +26,8 @@ export const AllocationForm = () => {
     (async () => {
       const [items, depts, classes] = await Promise.all([
         inventoryService.getItems({ status: 'active' }),
-        fetch('/api/academics/departments').then((r) => r.json()).catch(() => ({ departments: [] })),
-        fetch('/api/classes').then((r) => r.json()).catch(() => ({ classes: [] })),
+        api.get('/academics/departments').catch(() => ({ departments: [] })),
+        api.get('/classes').catch(() => ({ classes: [] })),
       ]);
       setLookups({
         items: items.items || [],

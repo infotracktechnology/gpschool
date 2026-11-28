@@ -15,16 +15,18 @@ import {
   Bell
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const EmergencyDirectory = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const [directory, setDirectory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchDirectory();
-  }, []);
+  }, [selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchDirectory = async () => {
     try {

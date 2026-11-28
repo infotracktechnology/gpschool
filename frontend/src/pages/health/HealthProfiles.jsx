@@ -10,9 +10,11 @@ import {
   Trash2,
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const HealthProfiles = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const [activeTab, setActiveTab] = useState('student');
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,7 +22,7 @@ export const HealthProfiles = () => {
 
   useEffect(() => {
     fetchProfiles();
-  }, [activeTab]);
+  }, [activeTab, selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchProfiles = async () => {
     try {

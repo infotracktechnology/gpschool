@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Plus, Search, PhoneCall, Edit, Trash2 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const ParentNotifications = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,7 +14,7 @@ export const ParentNotifications = () => {
 
   useEffect(() => {
     fetchNotifications();
-  }, [urgencyFilter]);
+  }, [urgencyFilter, selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchNotifications = async () => {
     try {

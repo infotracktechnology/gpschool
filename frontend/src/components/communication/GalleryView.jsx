@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { communicationService } from '../../services/communicationService';
 import { getAcademicGroups } from '../../services/api';
+import { api } from '../../api/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -139,9 +140,8 @@ export const GalleryView = ({ branchId, academicYearId, classes = [], sections =
                 params.append('class_id', String(cId));
                 params.append('status', 'Active');
                 params.append('page_size', '400');
-                return fetch(`/api/students?${params.toString()}`)
-                    .then(r => r.json())
-                    .then(res => res.data || [])
+                return api.get(`/students?${params.toString()}`)
+                    .then(res => res.data || res.students || [])
                     .catch(() => []);
             });
 

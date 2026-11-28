@@ -15,9 +15,11 @@ import {
   Bell,
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const InfirmaryDesk = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const [visits, setVisits] = useState([]);
   const [activeBays, setActiveBays] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,7 @@ export const InfirmaryDesk = () => {
 
   useEffect(() => {
     fetchVisits();
-  }, [dispositionFilter]);
+  }, [dispositionFilter, selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchVisits = async () => {
     try {

@@ -1,4 +1,5 @@
 import { pool, query } from '../config/database.js';
+import { sanitizeScopeId } from '../middleware/authMiddleware.js';
 
 const CAN_DIRECT_ISSUE_ROLES = ['super_admin', 'admin', 'principal'];
 
@@ -166,16 +167,17 @@ const syncTransferRecordOnIssue = async (conn, cert, userId) => {
   } else {
     const [tcRes] = await conn.query(
       `INSERT INTO transfer_certificates (
-        tc_no, student_id, enrollment_id, branch_id, issue_date, leaving_date, application_date,
+        tc_no, student_id, enrollment_id, branch_id, academic_year_id, issue_date, leaving_date, application_date,
         reason_for_leaving, conduct, dues_cleared, month_dues_paid, last_class_studied,
         last_exam_result, failed_status, promoted_to_class, working_days, present_days,
         subjects_studied, fee_concession, extra_activities, remarks, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         cert.certificate_no,
         cert.student_id,
         targetEnrollmentId,
         targetBranchId,
+        cert.academic_year_id || null,
         issueDate,
         leavingDate,
         applicationDate,
@@ -250,9 +252,23 @@ const rollbackTransferIfNeeded = async (conn, cert) => {
  */
 export const getCertificateDashboard = async (req, res, next) => {
   try {
-    const { branch_id } = req.query;
-    const whereClause = branch_id ? 'WHERE branch_id = ?' : '';
-    const params = branch_id ? [branch_id] : [];
+    const branchId = req.scope?.branchId ?? sanitizeScopeId(req.query.branch_id);
+    const academicYearId = sanitizeScopeId(req.query.academic_year_id) ?? req.scope?.academicYearId ?? null;
+
+    const conditions = [];
+    const params = [];
+    if (branchId) {
+      conditions.push('branch_id = ?');
+      params.push(branchId);
+    }
+    if (academicYearId) {
+      conditions.push('academic_year_id = ?');
+      params.push(academicYearId);
+    }
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const icConditions = conditions.map((c) => `ic.${c}`);
+    const icAndClause = icConditions.length > 0 ? `AND ${icConditions.join(' AND ')}` : '';
+    const icWhereClause = icConditions.length > 0 ? `WHERE ${icConditions.join(' AND ')}` : '';
 
     const [summary] = await query(
       `SELECT
@@ -305,7 +321,7 @@ export const getCertificateDashboard = async (req, res, next) => {
       LEFT JOIN branches b ON ic.branch_id = b.id
       LEFT JOIN users u ON ic.requested_by = u.id
       WHERE ic.status = 'pending_approval'
-      ${branch_id ? 'AND ic.branch_id = ?' : ''}
+      ${icAndClause}
       ORDER BY ic.id DESC
       LIMIT 8
     `;
@@ -320,7 +336,7 @@ export const getCertificateDashboard = async (req, res, next) => {
       LEFT JOIN branches b ON ic.branch_id = b.id
       LEFT JOIN certificate_templates ct ON ic.template_id = ct.id
       LEFT JOIN academic_years ay ON ic.academic_year_id = ay.id
-      ${branch_id ? 'WHERE ic.branch_id = ?' : ''}
+      ${icWhereClause}
       ORDER BY ic.id DESC
       LIMIT 10
     `;
@@ -355,7 +371,10 @@ export const getCertificateDashboard = async (req, res, next) => {
  */
 export const searchCertificateStudents = async (req, res, next) => {
   try {
-    const { q = '', branch_id } = req.query;
+    const { q = '' } = req.query;
+    const branchId = req.scope?.branchId ?? sanitizeScopeId(req.query.branch_id);
+    const academicYearId = sanitizeScopeId(req.query.academic_year_id) ?? req.scope?.academicYearId;
+
     let sql = `
       SELECT
         s.id, s.admission_no, s.student_name, s.gender, s.dob, s.blood_group,
@@ -371,7 +390,7 @@ export const searchCertificateStudents = async (req, res, next) => {
       LEFT JOIN student_enrollments se ON se.id = (
         SELECT se2.id FROM student_enrollments se2
         WHERE se2.student_id = s.id
-        ORDER BY (se2.enrollment_status IN ('current', 'active')) DESC, se2.id DESC
+        ORDER BY ${academicYearId ? `(se2.academic_year_id = ${Number(academicYearId)}) DESC, ` : ''}(se2.enrollment_status IN ('current', 'active')) DESC, se2.id DESC
         LIMIT 1
       )
       LEFT JOIN classes c ON se.class_id = c.id
@@ -381,9 +400,9 @@ export const searchCertificateStudents = async (req, res, next) => {
       WHERE s.status IN ('active', 'inactive', 'transferred')
     `;
     const params = [];
-    if (branch_id) {
+    if (branchId) {
       sql += ` AND se.branch_id = ?`;
-      params.push(branch_id);
+      params.push(branchId);
     }
     if (q && q.trim().length > 0) {
       sql += ` AND (s.student_name LIKE ? OR s.admission_no LIKE ? OR s.father_name LIKE ? OR c.name LIKE ?)`;
@@ -407,7 +426,8 @@ export const searchCertificateStudents = async (req, res, next) => {
  */
 export const searchCertificateStaff = async (req, res, next) => {
   try {
-    const { q = '', branch_id } = req.query;
+    const { q = '' } = req.query;
+    const branchId = req.scope?.branchId ?? sanitizeScopeId(req.query.branch_id);
     let sql = `
       SELECT
         sp.id, sp.emp_no,
@@ -420,9 +440,9 @@ export const searchCertificateStaff = async (req, res, next) => {
       WHERE sp.status IN ('active', 'inactive')
     `;
     const params = [];
-    if (branch_id) {
+    if (branchId) {
       sql += ` AND sp.branch_id = ?`;
-      params.push(branch_id);
+      params.push(branchId);
     }
     if (q && q.trim().length > 0) {
       sql += ` AND (sp.first_name LIKE ? OR sp.last_name LIKE ? OR sp.emp_no LIKE ? OR sp.department LIKE ? OR sp.designation LIKE ?)`;
@@ -767,13 +787,16 @@ export const getCertificates = async (req, res, next) => {
       sql += ` AND ic.status = ?`;
       params.push(status);
     }
-    if (branch_id) {
+    const effectiveBranchId = req.scope?.branchId ?? sanitizeScopeId(branch_id);
+    const effectiveAyId = sanitizeScopeId(academic_year_id) ?? req.scope?.academicYearId ?? null;
+
+    if (effectiveBranchId) {
       sql += ` AND ic.branch_id = ?`;
-      params.push(branch_id);
+      params.push(effectiveBranchId);
     }
-    if (academic_year_id) {
+    if (effectiveAyId) {
       sql += ` AND ic.academic_year_id = ?`;
-      params.push(academic_year_id);
+      params.push(effectiveAyId);
     }
     if (date_from) {
       sql += ` AND DATE(COALESCE(ic.issue_date, ic.created_at)) >= ?`;
@@ -900,8 +923,14 @@ export const createCertificate = async (req, res, next) => {
     const wantsImmediateIssue = action_mode === 'issue' && canDirectIssue;
 
     const effectiveStatus = wantsImmediateIssue ? 'issued' : 'pending_approval';
-    const effectiveBranchId = branch_id || req.user?.branch_id || 1;
-    const effectiveIssueDate = formatDateOnly(issue_date) || new Date().toISOString().slice(0, 10);
+    const effectiveBranchId =
+      req.scope?.branchId ?? sanitizeScopeId(branch_id) ?? req.user?.branch_id ?? null;
+    if (!effectiveBranchId) {
+      return res.status(400).json({ message: 'Please select a specific Campus Branch to issue a certificate.' });
+    }
+    const effectiveAcademicYearId =
+      sanitizeScopeId(academic_year_id) ?? req.scope?.academicYearId ?? null;
+    const effectiveIssueDate = formatDateOnly(issue_date) || formatDateOnly(new Date());
     const certificateNo = await generateCertificateNumber(certificate_type, effectiveBranchId);
 
     const parsedCf = parseJsonSafe(custom_fields);
@@ -944,7 +973,7 @@ export const createCertificate = async (req, res, next) => {
         student_id || null,
         staff_id || null,
         effectiveBranchId,
-        academic_year_id || null,
+        effectiveAcademicYearId,
         String(recipient_name).trim(),
         ref_no || null,
         class_or_dept || null,

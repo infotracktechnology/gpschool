@@ -119,6 +119,7 @@ import { EmergencyDirectory } from './pages/health/EmergencyDirectory';
 import { ParentNotifications } from './pages/health/ParentNotifications';
 import { ParentNotificationForm } from './pages/health/ParentNotificationForm';
 import { StudentHealth } from './pages/student/StudentHealth';
+import StudentHostel from './pages/student/StudentHostel';
 import { PortalHealth } from './pages/portal/PortalHealth';
 import { CertificateDashboard } from './pages/certificates/CertificateDashboard';
 import { CertificateTemplates } from './pages/certificates/CertificateTemplates';
@@ -155,6 +156,23 @@ import { DamagedItems } from './pages/inventory/DamagedItems';
 import { DamageReportForm, DamageInspectForm, DamageView } from './pages/inventory/DamagedItemsForms';
 import { InventoryStockReport, InventoryMovementReport, InventorySupplierReport, InventoryAllocationReport, InventoryDamageReport } from './pages/inventory/InventoryReports';
 import { InventoryAuditTrail } from './pages/inventory/InventoryAuditTrail';
+import { TransportDashboard } from './pages/transport/TransportDashboard';
+import { TransportSettings } from './pages/transport/TransportSettings';
+import { VehicleTypes } from './pages/transport/VehicleTypes';
+import { Vehicles } from './pages/transport/Vehicles';
+import { Personnel } from './pages/transport/Personnel';
+import { Routes as TransportRoutes } from './pages/transport/Routes';
+import { Allocations as TransportAllocations } from './pages/transport/Allocations';
+import { Fees as TransportFees } from './pages/transport/Fees';
+import { Trips } from './pages/transport/Trips';
+import { Documents } from './pages/transport/Documents';
+import { Maintenance } from './pages/transport/Maintenance';
+import { TransportNotifications } from './pages/transport/TransportNotifications';
+import { TransportReports } from './pages/transport/TransportReports';
+import StudentTransport from './pages/student/StudentTransport';
+import HostelDashboard from './pages/hostel/HostelDashboard';
+import HostelWorkspace from './pages/hostel/HostelWorkspace';
+import HostelReport from './pages/hostel/HostelReport';
 
 export default function App() {
   return (
@@ -176,6 +194,8 @@ export default function App() {
             <Route path="profile" element={<StudentProfileView />} />
             <Route path="concerns" element={<StudentConcerns />} />
             <Route path="health" element={<StudentHealth />} />
+            <Route path="transport" element={<StudentTransport />} />
+            <Route path="hostel" element={<StudentHostel />} />
           </Route>
           <Route path="/" element={<AppLayout />}>
             <Route index element={<Dashboard />} />
@@ -366,6 +386,26 @@ export default function App() {
             <Route path="inventory/reports/allocation" element={<InventoryAllocationReport />} />
             <Route path="inventory/reports/damage" element={<InventoryDamageReport />} />
             <Route path="inventory/audit-trail" element={<InventoryAuditTrail />} />
+
+            {/* Transport Management */}
+            <Route path="transport" element={<TransportDashboard />} />
+            <Route path="transport/settings" element={<TransportSettings />} />
+            <Route path="transport/vehicle-types" element={<VehicleTypes />} />
+            <Route path="transport/vehicles" element={<Vehicles />} />
+            <Route path="transport/personnel" element={<Personnel />} />
+            <Route path="transport/routes" element={<TransportRoutes />} />
+            <Route path="transport/allocations" element={<TransportAllocations />} />
+            <Route path="transport/fees" element={<TransportFees />} />
+            <Route path="transport/trips" element={<Trips />} />
+            <Route path="transport/documents" element={<Documents />} />
+            <Route path="transport/maintenance" element={<Maintenance />} />
+            <Route path="transport/notifications" element={<TransportNotifications />} />
+            <Route path="transport/reports" element={<TransportReports />} />
+
+            {/* Hostel Management */}
+            <Route path="hostel" element={<HostelDashboard />} />
+            <Route path="hostel/reports/:reportType" element={<HostelReport />} />
+            <Route path="hostel/:section" element={<HostelWorkspace />} />
           </Route>
 
           {/* Dedicated Staff Portal Routes (Strictly separated from Admin AppLayout) */}

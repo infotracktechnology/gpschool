@@ -12,9 +12,11 @@ import {
   Trash2,
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const Appointments = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
 
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,7 +25,7 @@ export const Appointments = () => {
 
   useEffect(() => {
     fetchAppointments();
-  }, [statusFilter]);
+  }, [statusFilter, selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchAppointments = async () => {
     try {

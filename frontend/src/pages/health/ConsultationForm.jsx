@@ -10,11 +10,23 @@ import {
   Printer,
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
+import { BranchScopePicker } from '../../components/common/BranchScopePicker';
 
 export const ConsultationForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
+  const [branchId, setBranchId] = useState(() =>
+    selectedBranch?.id && selectedBranch.id !== 'all' ? String(selectedBranch.id) : ''
+  );
+
+  useEffect(() => {
+    if (selectedBranch?.id && selectedBranch.id !== 'all') {
+      setBranchId(String(selectedBranch.id));
+    }
+  }, [selectedBranch?.id]);
 
   const [loading, setLoading] = useState(isEdit);
   const [submitting, setSubmitting] = useState(false);
@@ -142,7 +154,12 @@ export const ConsultationForm = () => {
 
     try {
       setSubmitting(true);
-      const payload = { ...form, patient_type: patientType };
+      const payload = {
+        ...form,
+        patient_type: patientType,
+        ...(branchId ? { branch_id: Number(branchId) } : {}),
+        ...(selectedAcademicYear?.id ? { academic_year_id: Number(selectedAcademicYear.id) } : {}),
+      };
       if (isEdit) {
         await api.put(`/health/consultations/${id}`, payload);
       } else {
@@ -207,6 +224,7 @@ export const ConsultationForm = () => {
       )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
+        <BranchScopePicker branchId={branchId} onBranchChange={setBranchId} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">

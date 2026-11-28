@@ -59,7 +59,9 @@ import {
   PackageCheck,
   Boxes,
   AlertTriangle,
-  ScrollText
+  ScrollText,
+  ArrowLeftRight,
+  Bus,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -422,6 +424,41 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
   ];
 
   const isInventoryActive = location.pathname.startsWith('/inventory');
+  const transportItems = [
+    { label: 'Transport Overview', path: '/transport', icon: LayoutDashboard, exact: true },
+    { label: 'Settings', path: '/transport/settings', icon: Settings },
+    { label: 'Vehicle Types', path: '/transport/vehicle-types', icon: Bus },
+    { label: 'Vehicles', path: '/transport/vehicles', icon: Truck },
+    { label: 'Personnel', path: '/transport/personnel', icon: Users },
+    { label: 'Routes & Stops', path: '/transport/routes', icon: GitFork },
+    { label: 'Student Allocations', path: '/transport/allocations', icon: GraduationCap },
+    { label: 'Fees & Collections', path: '/transport/fees', icon: Banknote },
+    { label: 'Trips', path: '/transport/trips', icon: CalendarCheck },
+    { label: 'Documents', path: '/transport/documents', icon: FileCheck2 },
+    { label: 'Maintenance', path: '/transport/maintenance', icon: Settings },
+    { label: 'Notifications', path: '/transport/notifications', icon: Bell },
+    { label: 'Reports', path: '/transport/reports', icon: BarChart3 },
+  ];
+  const isTransportActive = location.pathname.startsWith('/transport');
+  const hostelItems = [
+    { label: 'Hostel Overview', path: '/hostel', icon: LayoutDashboard, exact: true },
+    { label: 'Hostel Setup', path: '/hostel/setup', icon: Building2 },
+    { label: 'Wardens', path: '/hostel/wardens', icon: Users },
+    { label: 'Blocks', path: '/hostel/blocks', icon: Layers },
+    { label: 'Floors', path: '/hostel/floors', icon: Layers },
+    { label: 'Rooms', path: '/hostel/rooms', icon: Building2 },
+    { label: 'Beds', path: '/hostel/beds', icon: Building2 },
+    { label: 'Student Allocation', path: '/hostel/allocations', icon: GraduationCap },
+    { label: 'In / Out Attendance', path: '/hostel/attendance', icon: Clock },
+    { label: 'Gate Passes', path: '/hostel/gate-passes', icon: ShieldCheck },
+    { label: 'Hostel Fees', path: '/hostel/fees', icon: Banknote },
+    { label: 'Fee Collections', path: '/hostel/collections', icon: FileCheck2 },
+    { label: 'Mess', path: '/hostel/mess', icon: CalendarDays },
+    { label: 'Complaints', path: '/hostel/complaints', icon: MessageSquare },
+    { label: 'Maintenance', path: '/hostel/maintenance', icon: Settings },
+    { label: 'Reports', path: '/hostel/reports/occupancy', icon: BarChart3 },
+  ];
+  const isHostelActive = location.pathname.startsWith('/hostel');
   const isVisitorActive = location.pathname.startsWith('/visitors');
   const isCommunicationActive = location.pathname.startsWith('/communication');
   const isAdmissionActive = admissionItems.some((item) =>
@@ -447,6 +484,8 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
   const [healthOpen, setHealthOpen] = useState(isHealthActive || false);
   const [certificateOpen, setCertificateOpen] = useState(isCertificateActive || false);
   const [inventoryOpen, setInventoryOpen] = useState(isInventoryActive || false);
+  const [transportOpen, setTransportOpen] = useState(isTransportActive || false);
+  const [hostelOpen, setHostelOpen] = useState(isHostelActive || false);
   const [academicOpen, setAcademicOpen] = useState(isAcademicActive || false);
   const [communicationOpen, setCommunicationOpen] = useState(isCommunicationActive || false);
   const [admissionSettingsOpen, setAdmissionSettingsOpen] = useState(
@@ -460,6 +499,14 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
   useEffect(() => {
     if (isHealthActive) setHealthOpen(true);
   }, [isHealthActive]);
+
+  useEffect(() => {
+    if (isTransportActive) setTransportOpen(true);
+  }, [isTransportActive]);
+
+  useEffect(() => {
+    if (isHostelActive) setHostelOpen(true);
+  }, [isHostelActive]);
 
   useEffect(() => {
     if (isVisitorActive) setVisitorOpen(true);
@@ -1015,6 +1062,52 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
                     })}
                   </div>
                 )}
+              </div>
+
+              {/* Transport Management Dropdown */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setTransportOpen((prev) => !prev)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
+                    isTransportActive ? 'text-sky-900 bg-sky-50/80 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3"><Bus className="w-4 h-4 shrink-0 text-sky-600" /><span>Transport Mgmt</span></div>
+                  {transportOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+                </button>
+                {transportOpen && <div className="mt-1 ml-3 pl-3 border-l-2 border-slate-100 space-y-1">
+                  {transportItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = item.exact ? location.pathname === item.path : location.pathname.startsWith(item.path);
+                    return <NavLink key={item.path} to={item.path} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${active ? 'bg-sky-50 text-sky-700 font-semibold border border-sky-200/80 shadow-xs' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}>
+                      <Icon className="w-3.5 h-3.5 shrink-0" /><span>{item.label}</span>
+                    </NavLink>;
+                  })}
+                </div>}
+              </div>
+
+              {/* Hostel Management Dropdown */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setHostelOpen((prev) => !prev)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
+                    isHostelActive ? 'text-indigo-900 bg-indigo-50/80 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3"><Building2 className="w-4 h-4 shrink-0 text-indigo-600" /><span>Hostel Management</span></div>
+                  {hostelOpen ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
+                </button>
+                {hostelOpen && <div className="mt-1 ml-3 pl-3 border-l-2 border-slate-100 space-y-1">
+                  {hostelItems.map((item) => {
+                    const Icon = item.icon;
+                    const active = item.exact ? location.pathname === item.path : location.pathname.startsWith(item.path);
+                    return <NavLink key={item.path} to={item.path} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all ${active ? 'bg-indigo-50 text-indigo-700 font-semibold border border-indigo-200/80 shadow-xs' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-50'}`}>
+                      <Icon className="w-3.5 h-3.5 shrink-0" /><span>{item.label}</span>
+                    </NavLink>;
+                  })}
+                </div>}
               </div>
 
               {/* User Management */}

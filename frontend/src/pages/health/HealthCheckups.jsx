@@ -12,16 +12,18 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const HealthCheckups = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const [checkups, setCheckups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchCheckups();
-  }, []);
+  }, [selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchCheckups = async () => {
     try {

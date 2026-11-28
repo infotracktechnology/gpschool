@@ -1,4 +1,5 @@
 import { query } from '../config/database.js';
+import { buildScopeFilter, resolveWriteScope } from '../middleware/authMiddleware.js';
 
 /**
  * Generate sequential daily document code: PREFIX-YYYYMMDD-XXXX
@@ -44,67 +45,82 @@ const computeInventoryStatus = (quantity, reorderLevel = 10, expiryDate = null) 
  * GET /api/health/dashboard
  * Campus Infirmary Analytics, Live Resting Bay, Stock Alerts & Follow-Ups
  */
-export const getHealthDashboard = async (_req, res, next) => {
+export const getHealthDashboard = async (req, res, next) => {
   try {
-    const [visitStats] = await query(`
-      SELECT
+    const scope = buildScopeFilter(req);
+    const branchOnlyScope = buildScopeFilter(req, '', { includeAy: false });
+
+    const [visitStats] = await query(
+      `SELECT
         SUM(CASE WHEN visit_date = CURDATE() THEN 1 ELSE 0 END) AS today_visits,
         SUM(CASE WHEN disposition = 'resting_in_bay' THEN 1 ELSE 0 END) AS in_bay_now,
         SUM(CASE WHEN visit_date = CURDATE() AND disposition = 'sent_home' THEN 1 ELSE 0 END) AS sent_home_today,
         SUM(CASE WHEN visit_date = CURDATE() AND disposition = 'sent_back_to_class' THEN 1 ELSE 0 END) AS back_to_class_today
-      FROM infirmary_visits
-    `);
+       FROM infirmary_visits
+       WHERE 1=1 ${scope.sql}`,
+      scope.params
+    );
 
-    const [flagStats] = await query(`
-      SELECT
+    const [flagStats] = await query(
+      `SELECT
         SUM(CASE WHEN known_allergies IS NOT NULL AND TRIM(known_allergies) <> '' AND LOWER(known_allergies) <> 'none' THEN 1 ELSE 0 END) AS allergy_flags,
         SUM(CASE WHEN chronic_conditions IS NOT NULL AND TRIM(chronic_conditions) <> '' AND LOWER(chronic_conditions) <> 'none' THEN 1 ELSE 0 END) AS chronic_flags,
         COUNT(*) AS total_dossiers
-      FROM health_profiles
-    `);
+       FROM health_profiles
+       WHERE 1=1 ${branchOnlyScope.sql}`,
+      branchOnlyScope.params
+    );
 
-    const activeBays = await query(`
-      SELECT * FROM infirmary_visits
-      WHERE disposition = 'resting_in_bay'
-      ORDER BY id DESC
-      LIMIT 12
-    `);
+    const activeBays = await query(
+      `SELECT * FROM infirmary_visits
+       WHERE disposition = 'resting_in_bay' ${scope.sql}
+       ORDER BY id DESC
+       LIMIT 12`,
+      scope.params
+    );
 
-    const recentVisits = await query(`
-      SELECT * FROM infirmary_visits
-      ORDER BY visit_date DESC, id DESC
-      LIMIT 8
-    `);
+    const recentVisits = await query(
+      `SELECT * FROM infirmary_visits
+       WHERE 1=1 ${scope.sql}
+       ORDER BY visit_date DESC, id DESC
+       LIMIT 8`,
+      scope.params
+    );
 
-    const visitTypeBreakdown = await query(`
-      SELECT visit_type, COUNT(*) AS count
-      FROM infirmary_visits
-      WHERE visit_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-      GROUP BY visit_type
-      ORDER BY count DESC
-    `);
+    const visitTypeBreakdown = await query(
+      `SELECT visit_type, COUNT(*) AS count
+       FROM infirmary_visits
+       WHERE visit_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) ${scope.sql}
+       GROUP BY visit_type
+       ORDER BY count DESC`,
+      scope.params
+    );
 
-    const inventoryAlerts = await query(`
-      SELECT * FROM infirmary_medicine_inventory
-      WHERE status IN ('low_stock', 'out_of_stock', 'expired')
-         OR quantity_available <= reorder_level
-         OR (expiry_date IS NOT NULL AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY))
-      ORDER BY status DESC, quantity_available ASC
-      LIMIT 10
-    `);
+    const inventoryAlerts = await query(
+      `SELECT * FROM infirmary_medicine_inventory
+       WHERE (status IN ('low_stock', 'out_of_stock', 'expired')
+          OR quantity_available <= reorder_level
+          OR (expiry_date IS NOT NULL AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 60 DAY))) ${branchOnlyScope.sql}
+       ORDER BY status DESC, quantity_available ASC
+       LIMIT 10`,
+      branchOnlyScope.params
+    );
 
-    const upcomingFollowUps = await query(`
-      SELECT * FROM doctor_consultations
-      WHERE follow_up_date IS NOT NULL AND follow_up_date >= CURDATE()
-      ORDER BY follow_up_date ASC
-      LIMIT 8
-    `);
+    const upcomingFollowUps = await query(
+      `SELECT * FROM doctor_consultations
+       WHERE follow_up_date IS NOT NULL AND follow_up_date >= CURDATE() ${scope.sql}
+       ORDER BY follow_up_date ASC
+       LIMIT 8`,
+      scope.params
+    );
 
-    const recentNotifications = await query(`
-      SELECT * FROM parent_health_notifications
-      ORDER BY notified_at DESC, id DESC
-      LIMIT 6
-    `);
+    const recentNotifications = await query(
+      `SELECT * FROM parent_health_notifications
+       WHERE 1=1 ${scope.sql}
+       ORDER BY notified_at DESC, id DESC
+       LIMIT 6`,
+      scope.params
+    );
 
     res.json({
       success: true,
@@ -138,9 +154,10 @@ export const getInfirmaryVisits = async (req, res, next) => {
   try {
     const { date, disposition, visit_type, search, page = 1, limit = 50 } = req.query;
     const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const scope = buildScopeFilter(req);
 
-    let sql = 'SELECT * FROM infirmary_visits WHERE 1=1';
-    const params = [];
+    let sql = `SELECT * FROM infirmary_visits WHERE 1=1 ${scope.sql}`;
+    const params = [...scope.params];
 
     if (date) {
       sql += ' AND visit_date = ?';
@@ -165,22 +182,24 @@ export const getInfirmaryVisits = async (req, res, next) => {
 
     const visits = await query(sql, params);
 
-    const [counts] = await query(`
-      SELECT
+    const [counts] = await query(
+      `SELECT
         COUNT(*) AS total_visits,
         SUM(CASE WHEN disposition = 'resting_in_bay' THEN 1 ELSE 0 END) AS in_bay,
         SUM(CASE WHEN disposition = 'sent_back_to_class' THEN 1 ELSE 0 END) AS back_to_class,
         SUM(CASE WHEN disposition = 'sent_home' THEN 1 ELSE 0 END) AS sent_home
-      FROM infirmary_visits
-      WHERE visit_date = CURDATE()
-    `);
+       FROM infirmary_visits
+       WHERE visit_date = CURDATE() ${scope.sql}`,
+      scope.params
+    );
 
-    const activeBays = await query(`
-      SELECT id, visit_number, patient_name, patient_type, class_section, department, bed_number, chief_complaint, visit_time
-      FROM infirmary_visits
-      WHERE disposition = 'resting_in_bay'
-      ORDER BY id DESC
-    `);
+    const activeBays = await query(
+      `SELECT id, visit_number, patient_name, patient_type, class_section, department, bed_number, chief_complaint, visit_time
+       FROM infirmary_visits
+       WHERE disposition = 'resting_in_bay' ${scope.sql}
+       ORDER BY id DESC`,
+      scope.params
+    );
 
     res.json({
       success: true,
@@ -260,6 +279,11 @@ export const createInfirmaryVisit = async (req, res, next) => {
       });
     }
 
+    const { branchId, academicYearId } = await resolveWriteScope(req, { requireBranch: true });
+    if (!branchId) {
+      return res.status(400).json({ success: false, message: 'Please select a Campus Branch before logging an infirmary visit.' });
+    }
+
     const visitNumber = await generateDailyCode('INF', 'infirmary_visits', 'visit_number');
     const vDate = visit_date || new Date().toISOString().slice(0, 10);
     const vTime =
@@ -268,13 +292,15 @@ export const createInfirmaryVisit = async (req, res, next) => {
 
     const insertRes = await query(
       `INSERT INTO infirmary_visits (
-        visit_number, patient_type, student_id, staff_id, patient_name,
+        visit_number, branch_id, academic_year_id, patient_type, student_id, staff_id, patient_name,
         class_section, department, visit_date, visit_time, visit_type,
         chief_complaint, treatment_given, temperature_f, pulse_bpm,
         disposition, bed_number, attended_by, remarks
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         visitNumber,
+        branchId,
+        academicYearId,
         patient_type,
         student_id || null,
         staff_id || null,
@@ -429,6 +455,8 @@ export const updateVisitDisposition = async (req, res, next) => {
 export const getHealthProfiles = async (req, res, next) => {
   try {
     const { type = 'student', search } = req.query;
+    const studentScope = buildScopeFilter(req, 'se');
+    const staffScope = buildScopeFilter(req, 'sp', { includeAy: false });
 
     let sql = '';
     const params = [];
@@ -456,12 +484,13 @@ export const getHealthProfiles = async (req, res, next) => {
           COALESCE(hp.emergency_contact_name, s.emergency_contact_name, s.father_name, 'Parent') AS emergency_contact_name,
           COALESCE(hp.emergency_contact_phone, s.emergency_contact_phone, s.father_phone) AS emergency_contact_phone
         FROM students s
-        LEFT JOIN student_enrollments se ON s.id = se.student_id AND se.enrollment_status = 'current'
+        JOIN student_enrollments se ON s.id = se.student_id AND (se.enrollment_status = 'current' OR se.enrollment_status = 'active')
         LEFT JOIN classes c ON se.class_id = c.id
         LEFT JOIN branch_class_sections bcs ON se.section_id = bcs.id
         LEFT JOIN health_profiles hp ON s.id = hp.student_id
-        WHERE s.status = 'active'
+        WHERE s.status = 'active' ${studentScope.sql}
       `;
+      params.push(...studentScope.params);
       if (search) {
         sql += ' AND (s.student_name LIKE ? OR s.admission_no LIKE ? OR c.name LIKE ?)';
         const term = `%${search}%`;
@@ -492,8 +521,9 @@ export const getHealthProfiles = async (req, res, next) => {
           COALESCE(hp.emergency_contact_phone, sp.emergency_contact_phone, sp.phone) AS emergency_contact_phone
         FROM staff_profiles sp
         LEFT JOIN health_profiles hp ON sp.id = hp.staff_id
-        WHERE sp.status = 'active'
+        WHERE sp.status = 'active' ${staffScope.sql}
       `;
+      params.push(...staffScope.params);
       if (search) {
         sql += ' AND (sp.first_name LIKE ? OR sp.last_name LIKE ? OR sp.emp_no LIKE ? OR sp.department LIKE ?)';
         const term = `%${search}%`;
@@ -634,15 +664,18 @@ export const updateHealthProfile = async (req, res, next) => {
     }
 
     const isStudent = type === 'student';
+    const { branchId, academicYearId } = await resolveWriteScope(req, { requireBranch: false });
 
     await query(
       `INSERT INTO health_profiles (
-        user_type, student_id, staff_id, blood_group, height_cm, weight_kg, bmi,
+        branch_id, academic_year_id, user_type, student_id, staff_id, blood_group, height_cm, weight_kg, bmi,
         known_allergies, chronic_conditions, medical_notes, identification_mark,
         doctor_name, doctor_phone, emergency_contact_name, emergency_contact_phone,
         emergency_contact_relation
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
+      branch_id = COALESCE(VALUES(branch_id), branch_id),
+      academic_year_id = COALESCE(VALUES(academic_year_id), academic_year_id),
       blood_group = VALUES(blood_group),
       height_cm = VALUES(height_cm),
       weight_kg = VALUES(weight_kg),
@@ -657,6 +690,8 @@ export const updateHealthProfile = async (req, res, next) => {
       emergency_contact_phone = VALUES(emergency_contact_phone),
       emergency_contact_relation = VALUES(emergency_contact_relation)`,
       [
+        branchId,
+        academicYearId,
         type,
         isStudent ? id : null,
         !isStudent ? id : null,
@@ -704,6 +739,7 @@ export const deleteHealthProfile = async (req, res, next) => {
 export const getHealthCheckups = async (req, res, next) => {
   try {
     const { student_id, search, date } = req.query;
+    const scope = buildScopeFilter(req, 'hc');
 
     let sql = `
       SELECT hc.*,
@@ -713,9 +749,9 @@ export const getHealthCheckups = async (req, res, next) => {
       FROM health_checkups hc
       LEFT JOIN students s ON hc.student_id = s.id
       LEFT JOIN health_profiles hp ON hc.student_id = hp.student_id
-      WHERE 1=1
+      WHERE 1=1 ${scope.sql}
     `;
-    const params = [];
+    const params = [...scope.params];
 
     if (student_id) {
       sql += ' AND hc.student_id = ?';
@@ -791,15 +827,22 @@ export const createHealthCheckup = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Student Name is required.' });
     }
 
+    const { branchId, academicYearId } = await resolveWriteScope(req, { requireBranch: true });
+    if (!branchId) {
+      return res.status(400).json({ success: false, message: 'Please select a Campus Branch before saving a health checkup.' });
+    }
+
     const cDate = checkup_date || new Date().toISOString().slice(0, 10);
 
     const insertRes = await query(
       `INSERT INTO health_checkups (
-        student_id, student_name, class_section, checkup_date, height_cm, weight_kg,
+        branch_id, academic_year_id, student_id, student_name, class_section, checkup_date, height_cm, weight_kg,
         vision_left, vision_right, dental_status, ent_status, general_fitness,
         doctor_remarks, examiner_name
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        branchId,
+        academicYearId,
         student_id || null,
         student_name,
         class_section || null,
@@ -915,9 +958,10 @@ export const deleteHealthCheckup = async (req, res, next) => {
 export const getMedicineLogs = async (req, res, next) => {
   try {
     const { search, date } = req.query;
+    const scope = buildScopeFilter(req);
 
-    let sql = 'SELECT * FROM medicine_dispensing_logs WHERE 1=1';
-    const params = [];
+    let sql = `SELECT * FROM medicine_dispensing_logs WHERE 1=1 ${scope.sql}`;
+    const params = [...scope.params];
 
     if (date) {
       sql += ' AND DATE(dispensed_at) = ?';
@@ -979,13 +1023,19 @@ export const createMedicineLog = async (req, res, next) => {
     }
 
     const unitsUsed = Math.max(1, parseInt(quantity_units, 10) || 1);
+    const { branchId, academicYearId } = await resolveWriteScope(req, { requireBranch: true });
+    if (!branchId) {
+      return res.status(400).json({ success: false, message: 'Please select a Campus Branch before logging medicine administration.' });
+    }
 
     const insertRes = await query(
       `INSERT INTO medicine_dispensing_logs (
-        patient_type, patient_name, class_or_dept, medicine_name, dosage_qty,
+        branch_id, academic_year_id, patient_type, patient_name, class_or_dept, medicine_name, dosage_qty,
         reason, dispensed_by, inventory_id, quantity_units
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        branchId,
+        academicYearId,
         patient_type,
         patient_name,
         class_or_dept || null,
@@ -1108,8 +1158,9 @@ export const deleteMedicineLog = async (req, res, next) => {
 export const getMedicineInventory = async (req, res, next) => {
   try {
     const { search, status } = req.query;
-    let sql = 'SELECT * FROM infirmary_medicine_inventory WHERE 1=1';
-    const params = [];
+    const scope = buildScopeFilter(req, '', { includeAy: false });
+    let sql = `SELECT * FROM infirmary_medicine_inventory WHERE 1=1 ${scope.sql}`;
+    const params = [...scope.params];
 
     if (status && status !== 'all') {
       sql += ' AND status = ?';
@@ -1164,13 +1215,18 @@ export const createMedicineInventory = async (req, res, next) => {
     }
 
     const status = computeInventoryStatus(quantity_available, reorder_level, expiry_date);
+    const { branchId } = await resolveWriteScope(req, { requireBranch: true });
+    if (!branchId) {
+      return res.status(400).json({ success: false, message: 'Please select a Campus Branch before adding medicine stock.' });
+    }
 
     const insertRes = await query(
       `INSERT INTO infirmary_medicine_inventory (
-        medicine_name, category, batch_no, unit, quantity_available, reorder_level,
+        branch_id, medicine_name, category, batch_no, unit, quantity_available, reorder_level,
         expiry_date, storage_location, supplier_name, status, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        branchId,
         medicine_name,
         category,
         batch_no || null,
@@ -1281,6 +1337,7 @@ export const deleteMedicineInventory = async (req, res, next) => {
 export const getDoctorConsultations = async (req, res, next) => {
   try {
     const { search, date } = req.query;
+    const scope = buildScopeFilter(req, 'dc');
 
     let sql = `
       SELECT dc.*,
@@ -1293,9 +1350,9 @@ export const getDoctorConsultations = async (req, res, next) => {
       LEFT JOIN staff_profiles sp ON dc.staff_id = sp.id
       LEFT JOIN health_profiles hp_s ON dc.student_id = hp_s.student_id
       LEFT JOIN health_profiles hp_st ON dc.staff_id = hp_st.staff_id
-      WHERE 1=1
+      WHERE 1=1 ${scope.sql}
     `;
-    const params = [];
+    const params = [...scope.params];
 
     if (date) {
       sql += ' AND dc.consultation_date = ?';
@@ -1375,15 +1432,21 @@ export const createDoctorConsultation = async (req, res, next) => {
 
     const consultNumber = await generateDailyCode('DOC', 'doctor_consultations', 'consultation_number');
     const cDate = consultation_date || new Date().toISOString().slice(0, 10);
+    const { branchId, academicYearId } = await resolveWriteScope(req, { requireBranch: true });
+    if (!branchId) {
+      return res.status(400).json({ success: false, message: 'Please select a Campus Branch before logging a consultation.' });
+    }
 
     const insertRes = await query(
       `INSERT INTO doctor_consultations (
-        consultation_number, doctor_name, doctor_reg_no, patient_type, student_id,
+        consultation_number, branch_id, academic_year_id, doctor_name, doctor_reg_no, patient_type, student_id,
         staff_id, patient_name, class_or_dept, consultation_date, symptoms,
         diagnosis, prescription, advice_and_rest, follow_up_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         consultNumber,
+        branchId,
+        academicYearId,
         doctor_name,
         doctor_reg_no || null,
         patient_type,
@@ -1506,8 +1569,9 @@ export const deleteDoctorConsultation = async (req, res, next) => {
 export const getParentNotifications = async (req, res, next) => {
   try {
     const { search, urgency, response_status } = req.query;
-    let sql = 'SELECT * FROM parent_health_notifications WHERE 1=1';
-    const params = [];
+    const scope = buildScopeFilter(req);
+    let sql = `SELECT * FROM parent_health_notifications WHERE 1=1 ${scope.sql}`;
+    const params = [...scope.params];
 
     if (urgency && urgency !== 'all') {
       sql += ' AND urgency = ?';
@@ -1571,15 +1635,21 @@ export const createParentNotification = async (req, res, next) => {
     }
 
     const notifNo = await generateDailyCode('PN', 'parent_health_notifications', 'notification_number');
+    const { branchId, academicYearId } = await resolveWriteScope(req, { requireBranch: true });
+    if (!branchId) {
+      return res.status(400).json({ success: false, message: 'Please select a Campus Branch before logging a notification.' });
+    }
 
     const insertRes = await query(
       `INSERT INTO parent_health_notifications (
-        notification_number, student_id, student_name, class_section, visit_id,
+        notification_number, branch_id, academic_year_id, student_id, student_name, class_section, visit_id,
         parent_name, parent_phone, channel, urgency, message_summary,
         response_status, notified_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         notifNo,
+        branchId,
+        academicYearId,
         student_id || null,
         student_name,
         class_section || null,
@@ -1695,6 +1765,7 @@ export const deleteParentNotification = async (req, res, next) => {
 export const getEmergencyDirectory = async (req, res, next) => {
   try {
     const { class_id, search } = req.query;
+    const scope = buildScopeFilter(req, 'se');
 
     let sql = `
       SELECT
@@ -1714,13 +1785,13 @@ export const getEmergencyDirectory = async (req, res, next) => {
         hp.known_allergies,
         hp.chronic_conditions
       FROM students s
-      LEFT JOIN student_enrollments se ON s.id = se.student_id AND se.enrollment_status = 'current'
+      JOIN student_enrollments se ON s.id = se.student_id AND (se.enrollment_status = 'current' OR se.enrollment_status = 'active')
       LEFT JOIN classes c ON se.class_id = c.id
       LEFT JOIN branch_class_sections bcs ON se.section_id = bcs.id
       LEFT JOIN health_profiles hp ON s.id = hp.student_id
-      WHERE s.status = 'active'
+      WHERE s.status = 'active' ${scope.sql}
     `;
-    const params = [];
+    const params = [...scope.params];
 
     if (class_id) {
       sql += ' AND se.class_id = ?';
@@ -1797,15 +1868,18 @@ export const referStudentFromClass = async (req, res, next) => {
     const visitNumber = await generateDailyCode('INF', 'infirmary_visits', 'visit_number');
     const vDate = new Date().toISOString().slice(0, 10);
     const vTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const { branchId, academicYearId } = await resolveWriteScope(req, { requireBranch: false });
 
     const insertRes = await query(
       `INSERT INTO infirmary_visits (
-        visit_number, patient_type, student_id, patient_name, class_section,
+        visit_number, branch_id, academic_year_id, patient_type, student_id, patient_name, class_section,
         visit_date, visit_time, visit_type, chief_complaint, treatment_given,
         temperature_f, disposition, attended_by, remarks
-      ) VALUES (?, 'student', ?, ?, ?, ?, ?, 'illness', ?, 'Awaiting infirmary triage', ?, 'resting_in_bay', 'Infirmary Desk', ?)`,
+      ) VALUES (?, ?, ?, 'student', ?, ?, ?, ?, ?, 'illness', ?, 'Awaiting infirmary triage', ?, 'resting_in_bay', 'Infirmary Desk', ?)`,
       [
         visitNumber,
+        branchId,
+        academicYearId,
         student_id || null,
         student_name,
         class_section || null,
@@ -1837,21 +1911,23 @@ export const referStudentFromClass = async (req, res, next) => {
 export const searchHealthStudents = async (req, res, next) => {
   try {
     const { q } = req.query;
+    const scope = buildScopeFilter(req, 'se');
     let sql = `
       SELECT s.id, s.admission_no, s.student_name, s.blood_group,
              s.father_name, s.father_phone, s.mother_name, s.mother_phone, s.emergency_contact_phone,
+             se.branch_id, se.academic_year_id,
              COALESCE(c.name, '') AS class_name,
              COALESCE(bcs.name, '') AS section_name,
              TRIM(CONCAT_WS(' - ', c.name, bcs.name)) AS class_section,
              hp.known_allergies, hp.chronic_conditions, hp.height_cm, hp.weight_kg, hp.bmi
       FROM students s
-      LEFT JOIN student_enrollments se ON s.id = se.student_id AND (se.enrollment_status = 'current' OR se.enrollment_status = 'active')
+      JOIN student_enrollments se ON s.id = se.student_id AND (se.enrollment_status = 'current' OR se.enrollment_status = 'active')
       LEFT JOIN classes c ON se.class_id = c.id
       LEFT JOIN branch_class_sections bcs ON se.section_id = bcs.id
       LEFT JOIN health_profiles hp ON s.id = hp.student_id
-      WHERE s.status = 'active'
+      WHERE s.status = 'active' ${scope.sql}
     `;
-    const params = [];
+    const params = [...scope.params];
     if (q && q.trim().length > 0) {
       sql += ' AND (s.student_name LIKE ? OR s.admission_no LIKE ? OR c.name LIKE ?)';
       const term = `%${q.trim()}%`;
@@ -1871,16 +1947,17 @@ export const searchHealthStudents = async (req, res, next) => {
 export const searchHealthStaff = async (req, res, next) => {
   try {
     const { q } = req.query;
+    const scope = buildScopeFilter(req, 'sp', { includeAy: false });
     let sql = `
-      SELECT sp.id, sp.emp_no,
+      SELECT sp.id, sp.emp_no, sp.branch_id,
              TRIM(CONCAT(COALESCE(sp.first_name, ''), ' ', COALESCE(sp.last_name, ''))) AS full_name,
              sp.department, sp.designation, sp.phone, sp.email,
              hp.blood_group, hp.known_allergies, hp.chronic_conditions
       FROM staff_profiles sp
       LEFT JOIN health_profiles hp ON sp.id = hp.staff_id
-      WHERE sp.status = 'active'
+      WHERE sp.status = 'active' ${scope.sql}
     `;
-    const params = [];
+    const params = [...scope.params];
     if (q && q.trim().length > 0) {
       sql += ' AND (sp.first_name LIKE ? OR sp.last_name LIKE ? OR sp.emp_no LIKE ? OR sp.department LIKE ?)';
       const term = `%${q.trim()}%`;

@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftRight, ArrowDownToLine, ArrowUpFromLine, SlidersHorizontal, Search } from 'lucide-react';
 import { inventoryService } from '../../services/inventoryService';
+import { useAuth } from '../../context/AuthContext';
 import { PageHeader, StatusBadge, EmptyState, btnPrimary, cardCls, inputCls, fmtDate } from './_shared';
 
 export const StockMovements = () => {
   const navigate = useNavigate();
+  const { selectedBranch } = useAuth();
+  const branchId = selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : '';
   const [movements, setMovements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [type, setType] = useState('');
@@ -14,11 +17,11 @@ export const StockMovements = () => {
   const load = async () => {
     try {
       setLoading(true);
-      const res = await inventoryService.getStockMovements({ movement_type: type, search });
+      const res = await inventoryService.getStockMovements({ movement_type: type, search, ...(branchId ? { branch_id: branchId } : {}) });
       if (res.success) setMovements(res.movements || []);
     } finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, [type, search]);
+  useEffect(() => { load(); }, [type, search, branchId]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">

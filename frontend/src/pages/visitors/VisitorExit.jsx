@@ -20,9 +20,11 @@ import {
   Plus
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const VisitorExit = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const [activeVisitors, setActiveVisitors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -33,7 +35,7 @@ export const VisitorExit = () => {
     fetchActiveVisitors();
     const interval = setInterval(fetchActiveVisitors, 30000); // 30s auto-refresh
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchActiveVisitors = async () => {
     try {

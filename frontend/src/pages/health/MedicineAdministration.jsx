@@ -9,16 +9,18 @@ import {
   Trash2,
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const MedicineAdministration = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchLogs();
-  }, []);
+  }, [selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchLogs = async () => {
     try {

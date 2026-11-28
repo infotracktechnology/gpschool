@@ -22,11 +22,13 @@ import {
   UserCheck,
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
 
 export const EnquiryList = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
 
   // Lookups
   const [branches, setBranches] = useState([]);
@@ -107,7 +109,9 @@ export const EnquiryList = () => {
         setClasses(cList);
         setLeadSources(sList);
 
-        if (bList.length > 0) {
+        if (selectedBranch?.id && selectedBranch.id !== 'all') {
+          setSelectedBranchId(String(selectedBranch.id));
+        } else if (bList.length > 0) {
           setSelectedBranchId(String(bList[0].id));
         } else {
           setLoading(false);
@@ -179,6 +183,7 @@ export const EnquiryList = () => {
     try {
       const params = new URLSearchParams();
       if (selectedBranchId) params.append('branch_id', selectedBranchId);
+      if (selectedAcademicYear?.id) params.append('academic_year_id', selectedAcademicYear.id);
       if (selectedClassId) params.append('class_id', selectedClassId);
       if (selectedLeadSourceId) params.append('lead_source_id', selectedLeadSourceId);
       if (selectedStatusTab !== 'all') params.append('status', selectedStatusTab);
@@ -223,12 +228,19 @@ export const EnquiryList = () => {
     isWorkflowReady,
     workflow.enable_enquiry,
     selectedBranchId,
+    selectedAcademicYear?.id,
     selectedClassId,
     selectedLeadSourceId,
     selectedStatusTab,
     activeRibbonFilter,
     search,
   ]);
+
+  useEffect(() => {
+    if (selectedBranch?.id && selectedBranch.id !== 'all') {
+      setSelectedBranchId(String(selectedBranch.id));
+    }
+  }, [selectedBranch?.id]);
 
   useEffect(() => {
     fetchEnquiries();

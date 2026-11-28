@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AlertTriangle, Plus, Search, Eye, ClipboardCheck, XCircle } from 'lucide-react';
 import { inventoryService } from '../../services/inventoryService';
+import { useAuth } from '../../context/AuthContext';
 import { PageHeader, StatusBadge, EmptyState, btnPrimary, cardCls, inputCls, fmtMoney, fmtDate } from './_shared';
 
 export const DamagedItems = () => {
   const navigate = useNavigate();
+  const { selectedBranch } = useAuth();
+  const branchId = selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : '';
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
@@ -14,11 +17,11 @@ export const DamagedItems = () => {
   const load = async () => {
     try {
       setLoading(true);
-      const res = await inventoryService.getDamagedItems({ status, search });
+      const res = await inventoryService.getDamagedItems({ status, search, ...(branchId ? { branch_id: branchId } : {}) });
       if (res.success) setItems(res.damaged_items || []);
     } finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, [status, search]);
+  useEffect(() => { load(); }, [status, search, branchId]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">

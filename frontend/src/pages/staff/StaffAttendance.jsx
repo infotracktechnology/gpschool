@@ -58,8 +58,10 @@ export const StaffAttendance = () => {
   useEffect(() => {
     if (selectedBranch && selectedBranch.id !== 'all') {
       setSelectedBranchId(String(selectedBranch.id));
+    } else if (branches.length > 0 && selectedBranch?.id === 'all') {
+      setSelectedBranchId(String(branches[0].id));
     }
-  }, [selectedBranch]);
+  }, [selectedBranch, branches]);
 
   // Load Daily Attendance
   const loadDailyAttendance = useCallback(async () => {

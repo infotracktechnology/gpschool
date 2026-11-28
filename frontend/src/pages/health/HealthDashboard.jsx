@@ -18,9 +18,11 @@ import {
   Edit,
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const HealthDashboard = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
     kpis: {
@@ -44,7 +46,7 @@ export const HealthDashboard = () => {
 
   useEffect(() => {
     fetchDashboard();
-  }, []);
+  }, [selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchDashboard = async () => {
     try {

@@ -29,7 +29,7 @@ const QUEUE_TABS = [
 
 export const CertificateApprovals = () => {
   const navigate = useNavigate();
-  const { selectedBranch } = useAuth();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const [activeTab, setActiveTab] = useState('pending_approval');
   const [rows, setRows] = useState([]);
   const [counts, setCounts] = useState({});
@@ -38,17 +38,22 @@ export const CertificateApprovals = () => {
 
   useEffect(() => {
     fetchApprovals();
-  }, [activeTab, selectedBranch?.id]);
+  }, [activeTab, selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchApprovals = async () => {
     try {
       setLoading(true);
-      const dashQ = selectedBranch?.id ? `?branch_id=${selectedBranch.id}` : '';
+      const dashParams = new URLSearchParams();
+      if (selectedBranch?.id && selectedBranch.id !== 'all') dashParams.set('branch_id', selectedBranch.id);
+      if (selectedAcademicYear?.id) dashParams.set('academic_year_id', selectedAcademicYear.id);
+      const dashQ = dashParams.toString();
+
       const listParams = new URLSearchParams({ status: activeTab });
-      if (selectedBranch?.id) listParams.set('branch_id', selectedBranch.id);
+      if (selectedBranch?.id && selectedBranch.id !== 'all') listParams.set('branch_id', selectedBranch.id);
+      if (selectedAcademicYear?.id) listParams.set('academic_year_id', selectedAcademicYear.id);
 
       const [dashRes, listRes] = await Promise.all([
-        api.get(`/certificates/dashboard${dashQ}`),
+        api.get(`/certificates/dashboard${dashQ ? `?${dashQ}` : ''}`),
         api.get(`/certificates?${listParams.toString()}`),
       ]);
 

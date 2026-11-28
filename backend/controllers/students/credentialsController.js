@@ -107,7 +107,7 @@ export const previewCredentials = async (req, res, next) => {
         section_name: stu.section_name,
         roll_no: stu.roll_no,
         username,
-        email: loginEmail,
+        email: stu.father_email || loginUsername,
         password: generatedPassword,
         account_exists: accountExists,
       };

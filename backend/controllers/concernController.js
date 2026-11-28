@@ -78,10 +78,15 @@ export const getCategories = async (req, res, next) => {
  */
 export const getConcernStats = async (req, res, next) => {
   try {
-    const { branch_id, scope } = req.query;
+    const { branch_id, academic_year_id, scope } = req.query;
 
-    let targetBranchId = req.user.role === 'super_admin' ? (branch_id ? Number(branch_id) : null) : req.user.branch_id;
+    let targetBranchId = req.user.role === 'super_admin'
+      ? (branch_id && branch_id !== 'all' ? Number(branch_id) : req.scope?.branchId || null)
+      : req.user.branch_id;
     if (targetBranchId === 'all') targetBranchId = null;
+    const targetAyId = academic_year_id && academic_year_id !== 'all'
+      ? Number(academic_year_id)
+      : req.scope?.academicYearId || null;
 
     let sql = `
       SELECT
@@ -102,6 +107,10 @@ export const getConcernStats = async (req, res, next) => {
     if (targetBranchId) {
       sql += ' AND c.branch_id = ?';
       params.push(targetBranchId);
+    }
+    if (targetAyId) {
+      sql += ' AND (c.academic_year_id = ? OR c.academic_year_id IS NULL)';
+      params.push(targetAyId);
     }
 
     // Role-based scoping for stats
@@ -151,6 +160,7 @@ export const getConcerns = async (req, res, next) => {
   try {
     const {
       branch_id,
+      academic_year_id,
       concern_type,
       status,
       priority,
@@ -161,7 +171,12 @@ export const getConcerns = async (req, res, next) => {
       scope,
     } = req.query;
 
-    let targetBranchId = req.user.role === 'super_admin' ? (branch_id && branch_id !== 'all' ? Number(branch_id) : null) : req.user.branch_id;
+    let targetBranchId = req.user.role === 'super_admin'
+      ? (branch_id && branch_id !== 'all' ? Number(branch_id) : req.scope?.branchId || null)
+      : req.user.branch_id;
+    const targetAyId = academic_year_id && academic_year_id !== 'all'
+      ? Number(academic_year_id)
+      : req.scope?.academicYearId || null;
 
     let sql = `
       SELECT
@@ -235,10 +250,18 @@ export const getConcerns = async (req, res, next) => {
     `;
     const params = [];
 
-    // Branch scoping
+    // Branch & Academic Year scoping
     if (targetBranchId) {
       sql += ' AND c.branch_id = ?';
       params.push(targetBranchId);
+    }
+    if (targetAyId) {
+      sql += ' AND (c.academic_year_id = ? OR c.academic_year_id IS NULL)';
+      params.push(targetAyId);
+    }
+    if (targetAyId) {
+      sql += ' AND (c.academic_year_id = ? OR c.academic_year_id IS NULL)';
+      params.push(targetAyId);
     }
 
     // Role Scoping

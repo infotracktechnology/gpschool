@@ -25,22 +25,60 @@ export const PortalDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [loading, setLoading] = useState(false);
-  const [stats, setStats] = useState({
-    todayClasses: 4,
-    classTeacherOf: 'Grade 10 - Section A',
-    studentStrength: 36,
-    leaveAvailable: 28,
-    lastNetPay: 55565,
-    punchStatus: 'Punched In (08:05 AM)',
-  });
+  const [loading, setLoading] = useState(true);
+  const [portalData, setPortalData] = useState(null);
 
-  const todaySchedule = [
-    { period: 1, time: '08:30 - 09:15 AM', class: 'Grade 10', section: 'Section A', subject: 'Mathematics (Calculus)', room: 'Room 301', status: 'Completed' },
-    { period: 2, time: '09:15 - 10:00 AM', class: 'Grade 10', section: 'Section B', subject: 'Mathematics (Algebra)', room: 'Room 302', status: 'Completed' },
-    { period: 4, time: '11:00 - 11:45 AM', class: 'Grade 9', section: 'Section A', subject: 'Mathematics (Trigonometry)', room: 'Room 201', status: 'Upcoming' },
-    { period: 6, time: '01:45 - 02:30 PM', class: 'Grade 10', section: 'Section A', subject: 'Math Tutorial & Doubt Clearing', room: 'Room 301', status: 'Upcoming' },
-  ];
+  useEffect(() => {
+    let active = true;
+    api
+      .get('/portal/dashboard')
+      .then((res) => {
+        if (active && res) setPortalData(res);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch portal dashboard:', err);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const staff = portalData?.staff || null;
+  const allocatedSubjects = portalData?.allocated_subjects || [];
+  const assignedClasses = portalData?.assigned_classes || [];
+  const leaveBalances = portalData?.leave_balances || [];
+  const latestPayslip = portalData?.latest_payslip || null;
+  const todayAttendance = portalData?.today_attendance || {};
+
+  const totalLeaveAvailable = leaveBalances.reduce((acc, l) => acc + Number(l.available || 0), 0);
+  const primaryClassTeacher = assignedClasses[0]
+    ? `${assignedClasses[0].class_name} - ${assignedClasses[0].section_name}`
+    : 'Not Assigned';
+
+  const stats = {
+    todayClasses: allocatedSubjects.length,
+    classTeacherOf: primaryClassTeacher,
+    studentStrength: assignedClasses[0]?.capacity || 0,
+    leaveAvailable: totalLeaveAvailable,
+    lastNetPay: Number(latestPayslip?.net_salary || 0),
+    punchStatus:
+      todayAttendance?.status && todayAttendance.status !== 'not_marked'
+        ? `${todayAttendance.status}${todayAttendance.check_in ? ` (${todayAttendance.check_in})` : ''}`
+        : 'Not Marked Yet',
+  };
+
+  const todaySchedule = allocatedSubjects.map((sub, idx) => ({
+    period: idx + 1,
+    time: `${sub.weekly_periods || 1} Periods / wk`,
+    class: sub.class_name,
+    section: sub.section_name,
+    subject: sub.subject_name,
+    room: sub.subject_code || 'Assigned',
+    status: 'Active',
+  }));
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -52,15 +90,15 @@ export const PortalDashboard = () => {
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-0.5 rounded-lg border border-emerald-800/80">
-                {user?.emp_no || 'GPS-T-001'}
+                {staff?.emp_no || user?.emp_no || user?.username || 'STAFF'}
               </span>
               <span className="text-xs text-slate-300 font-semibold">• Green Park Faculty Portal</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-              Welcome back, {user?.name || 'Dr. Ramesh Sundaram'}
+              Welcome back, {staff?.full_name || user?.name || 'Staff Member'}
             </h1>
             <p className="text-xs md:text-sm text-slate-300 max-w-xl">
-              Designated as <span className="text-emerald-400 font-semibold">{user?.designation || 'PGT Senior Mathematics Teacher'}</span> in {user?.department || 'Mathematics Department'}.
+              Designated as <span className="text-emerald-400 font-semibold">{staff?.designation || user?.designation || 'Faculty Member'}</span> in {staff?.department || user?.department || 'Academic Department'}.
             </p>
           </div>
 

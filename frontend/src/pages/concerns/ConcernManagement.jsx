@@ -65,7 +65,7 @@ const getCategoryMeta = (code = '') => {
 };
 
 export const ConcernManagement = () => {
-  const { user, selectedBranch } = useAuth();
+  const { user, selectedBranch, selectedAcademicYear } = useAuth();
 
   // Data States
   const [concerns, setConcerns] = useState([]);
@@ -129,8 +129,16 @@ export const ConcernManagement = () => {
         console.warn('Staff fetch error:', e);
       }
 
-      // 3. Concerns list
-      const res = await api.get('/concerns');
+      // 3. Concerns list (scoped by active Topbar Branch & Academic Year)
+      const params = new URLSearchParams();
+      if (selectedBranch?.id && selectedBranch.id !== 'all') {
+        params.set('branch_id', selectedBranch.id);
+      }
+      if (selectedAcademicYear?.id) {
+        params.set('academic_year_id', selectedAcademicYear.id);
+      }
+      const q = params.toString();
+      const res = await api.get(`/concerns${q ? `?${q}` : ''}`);
       const tktList = res?.concerns || res?.data || (Array.isArray(res) ? res : []);
       setConcerns(tktList);
     } catch (err) {
@@ -139,7 +147,7 @@ export const ConcernManagement = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [selectedBranch?.id, selectedAcademicYear?.id]);
 
   useEffect(() => {
     fetchAllData();

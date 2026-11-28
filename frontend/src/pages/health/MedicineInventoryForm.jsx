@@ -2,11 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Package, ArrowLeft, Save, AlertCircle } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
+import { BranchScopePicker } from '../../components/common/BranchScopePicker';
 
 export const MedicineInventoryForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const { selectedBranch } = useAuth();
+  const [branchId, setBranchId] = useState(() =>
+    selectedBranch?.id && selectedBranch.id !== 'all' ? String(selectedBranch.id) : ''
+  );
+
+  useEffect(() => {
+    if (selectedBranch?.id && selectedBranch.id !== 'all') {
+      setBranchId(String(selectedBranch.id));
+    }
+  }, [selectedBranch?.id]);
 
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
@@ -66,10 +78,14 @@ export const MedicineInventoryForm = () => {
 
     try {
       setSaving(true);
+      const payload = {
+        ...form,
+        ...(branchId ? { branch_id: Number(branchId) } : {}),
+      };
       if (isEdit) {
-        await api.put(`/health/inventory/${id}`, form);
+        await api.put(`/health/inventory/${id}`, payload);
       } else {
-        await api.post('/health/inventory', form);
+        await api.post('/health/inventory', payload);
       }
       navigate('/health/inventory');
     } catch (err) {
@@ -115,6 +131,7 @@ export const MedicineInventoryForm = () => {
       )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
+        <BranchScopePicker branchId={branchId} onBranchChange={setBranchId} />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">

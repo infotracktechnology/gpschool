@@ -28,7 +28,7 @@ import {
 
 export const CertificateDashboard = () => {
   const navigate = useNavigate();
-  const { selectedBranch } = useAuth();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
     summary: {
@@ -50,13 +50,16 @@ export const CertificateDashboard = () => {
 
   useEffect(() => {
     fetchDashboard();
-  }, [selectedBranch?.id]);
+  }, [selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchDashboard = async () => {
     try {
       setLoading(true);
-      const query = selectedBranch?.id ? `?branch_id=${selectedBranch.id}` : '';
-      const res = await api.get(`/certificates/dashboard${query}`);
+      const params = new URLSearchParams();
+      if (selectedBranch?.id && selectedBranch.id !== 'all') params.set('branch_id', selectedBranch.id);
+      if (selectedAcademicYear?.id) params.set('academic_year_id', selectedAcademicYear.id);
+      const q = params.toString();
+      const res = await api.get(`/certificates/dashboard${q ? `?${q}` : ''}`);
       if (res.success) {
         setData({
           summary: res.summary || {},

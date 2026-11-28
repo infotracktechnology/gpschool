@@ -21,7 +21,7 @@ import {
 
 export const CertificateTypeRegister = ({ certType }) => {
   const navigate = useNavigate();
-  const { selectedBranch } = useAuth();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const typeMeta = CERTIFICATE_TYPE_MAP[certType] || CERTIFICATE_TYPE_MAP.bonafide;
 
   const [certificates, setCertificates] = useState([]);
@@ -32,14 +32,15 @@ export const CertificateTypeRegister = ({ certType }) => {
 
   useEffect(() => {
     fetchList();
-  }, [certType, statusFilter, selectedBranch?.id]);
+  }, [certType, statusFilter, selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchList = async () => {
     try {
       setLoading(true);
       const params = new URLSearchParams({ certificate_type: certType });
       if (statusFilter) params.set('status', statusFilter);
-      if (selectedBranch?.id) params.set('branch_id', selectedBranch.id);
+      if (selectedBranch?.id && selectedBranch.id !== 'all') params.set('branch_id', selectedBranch.id);
+      if (selectedAcademicYear?.id) params.set('academic_year_id', selectedAcademicYear.id);
       if (search.trim()) params.set('search', search.trim());
       const res = await api.get(`/certificates?${params.toString()}`);
       if (res.success) {

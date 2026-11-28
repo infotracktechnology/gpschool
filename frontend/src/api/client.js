@@ -1,12 +1,37 @@
 const API_BASE_URL = '/api';
 
+const readActiveScopeHeaders = () => {
+  const scopeHeaders = {};
+  try {
+    const rawBranch = localStorage.getItem('school_erp_selected_branch');
+    if (rawBranch) {
+      const b = JSON.parse(rawBranch);
+      if (b?.id && b.id !== 'all') {
+        scopeHeaders['X-Branch-Id'] = String(b.id);
+      }
+    }
+    const rawAy = localStorage.getItem('school_erp_selected_ay');
+    if (rawAy) {
+      const ay = JSON.parse(rawAy);
+      if (ay?.id && ay.id !== 'all') {
+        scopeHeaders['X-Academic-Year-Id'] = String(ay.id);
+      }
+    }
+  } catch {
+    // Ignore invalid JSON in storage
+  }
+  return scopeHeaders;
+};
+
 export const apiClient = async (endpoint, options = {}) => {
   const token = localStorage.getItem('school_erp_token');
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const scopeHeaders = readActiveScopeHeaders();
 
   const headers = {
     ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...scopeHeaders,
     ...options.headers,
   };
 

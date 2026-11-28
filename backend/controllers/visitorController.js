@@ -1,4 +1,5 @@
 import { query } from '../config/database.js';
+import { buildScopeFilter, resolveWriteScope } from '../middleware/authMiddleware.js';
 
 /**
  * Generate unique Pass Number: VP-YYYYMMDD-XXXX
@@ -52,53 +53,61 @@ const generateAppointmentNumber = async () => {
  * GET /api/visitors/dashboard
  * Live gate KPIs, active & overstayed visitors, upcoming appointments, and purpose breakdown
  */
-export const getVisitorDashboard = async (_req, res, next) => {
+export const getVisitorDashboard = async (req, res, next) => {
   try {
-    const [kpis] = await query(`
-      SELECT
+    const scope = buildScopeFilter(req);
+
+    const [kpis] = await query(
+      `SELECT
         COUNT(*) AS total_today,
         SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_now,
         SUM(CASE WHEN status = 'checked_out' AND DATE(check_in_time) = CURDATE() THEN 1 ELSE 0 END) AS checked_out_today,
         SUM(CASE WHEN status = 'active' AND TIMESTAMPDIFF(MINUTE, check_in_time, NOW()) > expected_duration_minutes THEN 1 ELSE 0 END) AS overstayed_now
-      FROM visitor_passes
-      WHERE DATE(check_in_time) = CURDATE() OR status = 'active'
-    `);
+       FROM visitor_passes
+       WHERE (DATE(check_in_time) = CURDATE() OR status = 'active') ${scope.sql}`,
+      scope.params
+    );
 
-    const [aptStats] = await query(`
-      SELECT
+    const [aptStats] = await query(
+      `SELECT
         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_appointments,
         SUM(CASE WHEN appointment_date = CURDATE() AND status IN ('pending','approved') THEN 1 ELSE 0 END) AS today_appointments
-      FROM visitor_appointments
-    `);
+       FROM visitor_appointments
+       WHERE 1=1 ${scope.sql}`,
+      scope.params
+    );
 
-    const activeVisitors = await query(`
-      SELECT *,
+    const activeVisitors = await query(
+      `SELECT *,
         TIMESTAMPDIFF(MINUTE, check_in_time, NOW()) AS elapsed_minutes,
         CASE
           WHEN TIMESTAMPDIFF(MINUTE, check_in_time, NOW()) > expected_duration_minutes THEN 1
           ELSE 0
         END AS is_overstayed
-      FROM visitor_passes
-      WHERE status = 'active'
-      ORDER BY is_overstayed DESC, check_in_time DESC
-      LIMIT 15
-    `);
+       FROM visitor_passes
+       WHERE status = 'active' ${scope.sql}
+       ORDER BY is_overstayed DESC, check_in_time DESC
+       LIMIT 15`,
+      scope.params
+    );
 
-    const todayAppointments = await query(`
-      SELECT * FROM visitor_appointments
-      WHERE appointment_date >= CURDATE() AND status IN ('pending','approved')
-      ORDER BY appointment_date ASC, appointment_time ASC
-      LIMIT 10
-    `);
+    const todayAppointments = await query(
+      `SELECT * FROM visitor_appointments
+       WHERE appointment_date >= CURDATE() AND status IN ('pending','approved') ${scope.sql}
+       ORDER BY appointment_date ASC, appointment_time ASC
+       LIMIT 10`,
+      scope.params
+    );
 
-    const purposeBreakdown = await query(`
-      SELECT COALESCE(purpose, 'General') AS purpose, COUNT(*) AS count
-      FROM visitor_passes
-      WHERE check_in_time >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-      GROUP BY purpose
-      ORDER BY count DESC
-      LIMIT 6
-    `);
+    const purposeBreakdown = await query(
+      `SELECT COALESCE(purpose, 'General') AS purpose, COUNT(*) AS count
+       FROM visitor_passes
+       WHERE check_in_time >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) ${scope.sql}
+       GROUP BY purpose
+       ORDER BY count DESC
+       LIMIT 6`,
+      scope.params
+    );
 
     res.json({
       success: true,
@@ -130,16 +139,17 @@ export const lookupReturningVisitor = async (req, res, next) => {
       return res.json({ success: true, visitors: [] });
     }
     const term = `%${q.trim()}%`;
+    const scope = buildScopeFilter(req, 'v', { includeAy: false });
     const visitors = await query(
       `SELECT v.*,
               (SELECT vp.vehicle_type FROM visitor_passes vp WHERE vp.visitor_phone = v.phone ORDER BY vp.id DESC LIMIT 1) AS last_vehicle_type,
               (SELECT vp.vehicle_number FROM visitor_passes vp WHERE vp.visitor_phone = v.phone ORDER BY vp.id DESC LIMIT 1) AS last_vehicle_number,
               (SELECT COUNT(*) FROM visitor_passes vp WHERE vp.visitor_phone = v.phone) AS total_visits
        FROM visitors v
-       WHERE v.phone LIKE ? OR v.name LIKE ?
+       WHERE (v.phone LIKE ? OR v.name LIKE ?) ${scope.sql}
        ORDER BY v.updated_at DESC
        LIMIT 10`,
-      [term, term]
+      [term, term, ...scope.params]
     );
     res.json({ success: true, visitors });
   } catch (error) {
@@ -185,6 +195,14 @@ export const registerVisitorEntry = async (req, res, next) => {
       });
     }
 
+    const { branchId, academicYearId } = await resolveWriteScope(req, { requireBranch: true });
+    if (!branchId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please select a specific Campus Branch before issuing a visitor pass.',
+      });
+    }
+
     // 1. Find or create master visitor
     let [visitor] = await query('SELECT id FROM visitors WHERE phone = ? LIMIT 1', [phone]);
     let visitorId;
@@ -198,7 +216,9 @@ export const registerVisitorEntry = async (req, res, next) => {
              address = COALESCE(?, address),
              visitor_type = ?,
              id_proof_type = COALESCE(?, id_proof_type),
-             id_proof_number = COALESCE(?, id_proof_number)
+             id_proof_number = COALESCE(?, id_proof_number),
+             branch_id = COALESCE(branch_id, ?),
+             academic_year_id = COALESCE(academic_year_id, ?)
          WHERE id = ?`,
         [
           name,
@@ -208,13 +228,15 @@ export const registerVisitorEntry = async (req, res, next) => {
           visitor_type,
           id_proof_type || null,
           id_proof_number || null,
+          branchId,
+          academicYearId,
           visitorId,
         ]
       );
     } else {
       const result = await query(
-        `INSERT INTO visitors (name, phone, email, photo_url, visitor_type, address, id_proof_type, id_proof_number)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO visitors (name, phone, email, photo_url, visitor_type, address, id_proof_type, id_proof_number, branch_id, academic_year_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           name,
           phone,
@@ -224,6 +246,8 @@ export const registerVisitorEntry = async (req, res, next) => {
           address || null,
           id_proof_type || null,
           id_proof_number || null,
+          branchId,
+          academicYearId,
         ]
       );
       visitorId = result.insertId;
@@ -235,14 +259,16 @@ export const registerVisitorEntry = async (req, res, next) => {
     // 3. Create visitor pass record
     const passInsert = await query(
       `INSERT INTO visitor_passes (
-        pass_number, visitor_id, visitor_name, visitor_phone, photo_url,
+        pass_number, branch_id, academic_year_id, visitor_id, visitor_name, visitor_phone, photo_url,
         id_proof_type, id_proof_number, badge_number, appointment_id,
         purpose, purpose_details, person_to_meet_id, person_to_meet_name, department,
         student_id, student_name, student_class_section, vehicle_type, vehicle_number,
         accompanying_count, expected_duration_minutes, status, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)`,
       [
         passNumber,
+        branchId,
+        academicYearId,
         visitorId,
         name,
         phone,
@@ -421,6 +447,7 @@ export const deleteVisitorPass = async (req, res, next) => {
 export const getActiveVisitors = async (req, res, next) => {
   try {
     const { search } = req.query;
+    const scope = buildScopeFilter(req);
     let sql = `
       SELECT *,
         TIMESTAMPDIFF(MINUTE, check_in_time, NOW()) AS elapsed_minutes,
@@ -429,9 +456,9 @@ export const getActiveVisitors = async (req, res, next) => {
           ELSE 0
         END AS is_overstayed
       FROM visitor_passes
-      WHERE status = 'active'
+      WHERE status = 'active' ${scope.sql}
     `;
-    const params = [];
+    const params = [...scope.params];
 
     if (search) {
       sql += ` AND (pass_number LIKE ? OR visitor_name LIKE ? OR visitor_phone LIKE ? OR person_to_meet_name LIKE ? OR badge_number LIKE ?)`;
@@ -498,6 +525,7 @@ export const getVisitorPasses = async (req, res, next) => {
   try {
     const { search, status, date, page = 1, limit = 30 } = req.query;
     const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const scope = buildScopeFilter(req);
 
     let sql = `
       SELECT *,
@@ -507,9 +535,9 @@ export const getVisitorPasses = async (req, res, next) => {
           ELSE 0
         END AS is_overstayed
       FROM visitor_passes
-      WHERE 1=1
+      WHERE 1=1 ${scope.sql}
     `;
-    const params = [];
+    const params = [...scope.params];
 
     if (status && status !== 'all') {
       sql += ' AND status = ?';
@@ -532,8 +560,8 @@ export const getVisitorPasses = async (req, res, next) => {
 
     const passes = await query(sql, params);
 
-    let countSql = 'SELECT COUNT(*) AS total FROM visitor_passes WHERE 1=1';
-    const countParams = [];
+    let countSql = `SELECT COUNT(*) AS total FROM visitor_passes WHERE 1=1 ${scope.sql}`;
+    const countParams = [...scope.params];
     if (status && status !== 'all') {
       countSql += ' AND status = ?';
       countParams.push(status);
@@ -601,9 +629,10 @@ export const getPassDetails = async (req, res, next) => {
 export const getAppointments = async (req, res, next) => {
   try {
     const { status, date, host_id, search } = req.query;
+    const scope = buildScopeFilter(req);
 
-    let sql = 'SELECT * FROM visitor_appointments WHERE 1=1';
-    const params = [];
+    let sql = `SELECT * FROM visitor_appointments WHERE 1=1 ${scope.sql}`;
+    const params = [...scope.params];
 
     if (status && status !== 'all') {
       sql += ' AND status = ?';
@@ -679,16 +708,26 @@ export const createAppointment = async (req, res, next) => {
       });
     }
 
+    const { branchId, academicYearId } = await resolveWriteScope(req, { requireBranch: true });
+    if (!branchId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please select a specific Campus Branch before scheduling an appointment.',
+      });
+    }
+
     const aptNumber = await generateAppointmentNumber();
 
     const insertResult = await query(
       `INSERT INTO visitor_appointments (
-        appointment_number, visitor_name, visitor_phone, visitor_email,
+        appointment_number, branch_id, academic_year_id, visitor_name, visitor_phone, visitor_email,
         person_to_meet_id, person_to_meet_name, department, appointment_date,
         appointment_time, purpose, notes, status, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         aptNumber,
+        branchId,
+        academicYearId,
         visitor_name,
         visitor_phone,
         visitor_email || null,
@@ -844,10 +883,12 @@ export const updateAppointmentStatus = async (req, res, next) => {
 export const getHostsDirectory = async (req, res, next) => {
   try {
     const { department, search } = req.query;
+    const scope = buildScopeFilter(req, 'sp', { includeAy: false });
 
     let sql = `
       SELECT
         sp.id AS staff_id,
+        sp.branch_id,
         sp.emp_no,
         TRIM(CONCAT(COALESCE(sp.first_name, ''), ' ', COALESCE(sp.last_name, ''))) AS full_name,
         sp.designation,
@@ -861,9 +902,9 @@ export const getHostsDirectory = async (req, res, next) => {
         COALESCE(vhe.is_available, 1) AS is_available
       FROM staff_profiles sp
       LEFT JOIN visitor_host_extensions vhe ON sp.id = vhe.staff_id
-      WHERE sp.status = 'active'
+      WHERE sp.status = 'active' ${scope.sql}
     `;
-    const params = [];
+    const params = [...scope.params];
 
     if (department && department !== 'all') {
       sql += ' AND sp.department = ?';
@@ -930,17 +971,21 @@ export const updateHostExtension = async (req, res, next) => {
   try {
     const { staffId } = req.params;
     const { cabin_room, intercom, visiting_hours, is_available } = req.body;
+    const [spRow] = await query('SELECT branch_id FROM staff_profiles WHERE id = ? LIMIT 1', [staffId]);
+    const hostBranchId = spRow?.branch_id || req.scope?.branchId || null;
 
     await query(
-      `INSERT INTO visitor_host_extensions (staff_id, cabin_room, intercom, visiting_hours, is_available)
-       VALUES (?, ?, ?, ?, ?)
+      `INSERT INTO visitor_host_extensions (staff_id, branch_id, cabin_room, intercom, visiting_hours, is_available)
+       VALUES (?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
+       branch_id = COALESCE(VALUES(branch_id), branch_id),
        cabin_room = VALUES(cabin_room),
        intercom = VALUES(intercom),
        visiting_hours = VALUES(visiting_hours),
        is_available = VALUES(is_available)`,
       [
         staffId,
+        hostBranchId,
         cabin_room || 'Staff Room',
         intercom || '101',
         visiting_hours || '2:30 PM - 3:30 PM',
@@ -972,6 +1017,7 @@ export const getVisitorHistory = async (req, res, next) => {
     } = req.query;
 
     const offset = (parseInt(page, 10) - 1) * parseInt(limit, 10);
+    const scope = buildScopeFilter(req);
 
     let sql = `
       SELECT *,
@@ -981,9 +1027,9 @@ export const getVisitorHistory = async (req, res, next) => {
           ELSE 0
         END AS is_overstayed
       FROM visitor_passes
-      WHERE 1=1
+      WHERE 1=1 ${scope.sql}
     `;
-    const params = [];
+    const params = [...scope.params];
 
     if (startDate) {
       sql += ' AND DATE(check_in_time) >= ?';
@@ -1016,15 +1062,17 @@ export const getVisitorHistory = async (req, res, next) => {
 
     const history = await query(sql, params);
 
-    const [kpis] = await query(`
-      SELECT
+    const [kpis] = await query(
+      `SELECT
         COUNT(*) AS total_visits,
         SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS in_campus,
         SUM(CASE WHEN status = 'checked_out' THEN 1 ELSE 0 END) AS checked_out,
         SUM(CASE WHEN status = 'active' AND TIMESTAMPDIFF(MINUTE, check_in_time, NOW()) > expected_duration_minutes THEN 1 ELSE 0 END) AS overstayed,
         ROUND(AVG(TIMESTAMPDIFF(MINUTE, check_in_time, COALESCE(check_out_time, NOW()))), 0) AS avg_duration_minutes
-      FROM visitor_passes
-    `);
+       FROM visitor_passes
+       WHERE 1=1 ${scope.sql}`,
+      scope.params
+    );
 
     res.json({
       success: true,
@@ -1054,18 +1102,20 @@ export const searchStudents = async (req, res, next) => {
     }
 
     const term = `%${q}%`;
+    const scope = buildScopeFilter(req, 'se');
     const students = await query(
       `SELECT s.id, s.admission_no, s.student_name, s.father_name, s.mother_name, s.father_phone,
+              se.branch_id, se.academic_year_id,
               COALESCE(c.name, '') AS class_name,
               COALESCE(bcs.name, '') AS section_name,
               TRIM(CONCAT_WS(' - ', c.name, bcs.name)) AS class_section
        FROM students s
-       LEFT JOIN student_enrollments se ON s.id = se.student_id AND (se.enrollment_status = 'current' OR se.enrollment_status = 'active')
+       JOIN student_enrollments se ON s.id = se.student_id AND (se.enrollment_status = 'current' OR se.enrollment_status = 'active')
        LEFT JOIN classes c ON se.class_id = c.id
        LEFT JOIN branch_class_sections bcs ON se.section_id = bcs.id
-       WHERE s.student_name LIKE ? OR s.admission_no LIKE ? OR s.father_phone LIKE ?
+       WHERE (s.student_name LIKE ? OR s.admission_no LIKE ? OR s.father_phone LIKE ?) ${scope.sql}
        LIMIT 10`,
-      [term, term, term]
+      [term, term, term, ...scope.params]
     );
 
     res.json({ success: true, students });

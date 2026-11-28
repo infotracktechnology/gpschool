@@ -23,9 +23,15 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
+import { BranchScopePicker } from '../../components/common/BranchScopePicker';
 
 export const VisitorEntry = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
+  const [branchId, setBranchId] = useState(() =>
+    selectedBranch?.id && selectedBranch.id !== 'all' ? String(selectedBranch.id) : ''
+  );
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const appointmentIdParam = searchParams.get('appointmentId');
@@ -285,6 +291,12 @@ export const VisitorEntry = () => {
     }
   };
 
+  useEffect(() => {
+    if (selectedBranch?.id && selectedBranch.id !== 'all') {
+      setBranchId(String(selectedBranch.id));
+    }
+  }, [selectedBranch?.id]);
+
   // Submit Handler
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -308,6 +320,8 @@ export const VisitorEntry = () => {
       const payload = {
         ...formData,
         photo_url: photoUrl,
+        ...(branchId ? { branch_id: Number(branchId) } : {}),
+        ...(selectedAcademicYear?.id ? { academic_year_id: Number(selectedAcademicYear.id) } : {}),
       };
 
       if (isEdit) {
@@ -521,6 +535,7 @@ export const VisitorEntry = () => {
       )}
 
       {/* Main Form */}
+      <BranchScopePicker branchId={branchId} onBranchChange={setBranchId} className="mb-4" />
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Photo, Security ID Proof & Vehicle */}
         <div className="lg:col-span-1 space-y-6">

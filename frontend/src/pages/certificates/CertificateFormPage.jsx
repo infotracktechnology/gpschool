@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { api } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
+import { BranchScopePicker } from '../../components/common/BranchScopePicker';
 import { CertificateA4Sheet } from '../../components/certificates/CertificatePrintSheet';
 import {
   CERTIFICATE_TYPE_MAP,
@@ -62,10 +63,10 @@ export const CertificateFormPage = ({ mode = 'create', defaultType = 'bonafide' 
     recipient_type: 'student',
     student_id: null,
     staff_id: null,
-    branch_id: selectedBranch?.id || 1,
-    branch_name: selectedBranch?.name || '',
-    branch_code: selectedBranch?.code || '',
-    branch_logo: selectedBranch?.logo || '',
+    branch_id: selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : '',
+    branch_name: selectedBranch?.id !== 'all' ? selectedBranch?.name || '' : '',
+    branch_code: selectedBranch?.id !== 'all' ? selectedBranch?.code || '' : '',
+    branch_logo: selectedBranch?.id !== 'all' ? selectedBranch?.logo || '' : '',
     academic_year_id: selectedAcademicYear?.id || '',
     academic_year_name: selectedAcademicYear?.name || '',
     recipient_name: '',
@@ -146,15 +147,15 @@ export const CertificateFormPage = ({ mode = 'create', defaultType = 'bonafide' 
       setForm((prev) => ({
         ...prev,
         recipient_type: 'student',
-        branch_id: selectedBranch?.id || prev.branch_id,
-        branch_name: selectedBranch?.name || prev.branch_name,
-        branch_logo: selectedBranch?.logo || prev.branch_logo,
+        branch_id: selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : '',
+        branch_name: selectedBranch?.id !== 'all' ? selectedBranch?.name || '' : '',
+        branch_logo: selectedBranch?.id !== 'all' ? selectedBranch?.logo || '' : '',
         academic_year_id: selectedAcademicYear?.id || prev.academic_year_id,
         academic_year_name: selectedAcademicYear?.name || prev.academic_year_name,
       }));
       loadTemplatesForType(defaultType, requestedTemplateId, true);
     }
-  }, [defaultType, isEdit]);
+  }, [defaultType, isEdit, selectedBranch?.id, selectedAcademicYear?.id]);
 
   // Edit mode loader
   useEffect(() => {
@@ -553,6 +554,11 @@ export const CertificateFormPage = ({ mode = 'create', defaultType = 'bonafide' 
         <div className="xl:col-span-6 space-y-5">
           {/* 1. Recipient Lookup Card */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+            <BranchScopePicker
+              branchId={form.branch_id}
+              onBranchChange={(bId) => setForm((prev) => ({ ...prev, branch_id: bId }))}
+              academicYearName={form.academic_year_name}
+            />
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-sm font-bold text-slate-900">1. Recipient Selection &amp; Auto-Fill</h2>
               {typeMeta.supportsStaff && !isEdit && (

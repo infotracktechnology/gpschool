@@ -2,11 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Pill, ArrowLeft, Save, Search, AlertTriangle, AlertCircle } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
+import { BranchScopePicker } from '../../components/common/BranchScopePicker';
 
 export const MedicineForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
+  const [branchId, setBranchId] = useState(() =>
+    selectedBranch?.id && selectedBranch.id !== 'all' ? String(selectedBranch.id) : ''
+  );
+
+  useEffect(() => {
+    if (selectedBranch?.id && selectedBranch.id !== 'all') {
+      setBranchId(String(selectedBranch.id));
+    }
+  }, [selectedBranch?.id]);
 
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -137,6 +149,8 @@ export const MedicineForm = () => {
         ...form,
         patient_type: patientType,
         inventory_id: form.inventory_id ? Number(form.inventory_id) : null,
+        ...(branchId ? { branch_id: Number(branchId) } : {}),
+        ...(selectedAcademicYear?.id ? { academic_year_id: Number(selectedAcademicYear.id) } : {}),
       };
       if (isEdit) {
         await api.put(`/health/medicines/${id}`, payload);
@@ -187,6 +201,7 @@ export const MedicineForm = () => {
       )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
+        <BranchScopePicker branchId={branchId} onBranchChange={setBranchId} />
         <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl max-w-sm">
           <button
             type="button"

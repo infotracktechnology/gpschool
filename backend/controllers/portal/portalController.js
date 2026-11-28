@@ -85,7 +85,8 @@ export const getPortalDashboard = async (req, res, next) => {
       [staffId, staffId, staffId]
     );
 
-    // 3. Subject allocations
+    // 3. Subject allocations (filtered by active academic year if set)
+    const activeAyId = req.scope?.academicYearId || null;
     const subjectRows = await query(
       `SELECT tsa.id, tsa.class_id, tsa.section_id, tsa.subject_id, tsa.weekly_periods,
               c.name AS class_name, bcs.name AS section_name, sub.name AS subject_name, sub.code AS subject_code
@@ -93,8 +94,9 @@ export const getPortalDashboard = async (req, res, next) => {
        JOIN classes c ON tsa.class_id = c.id
        JOIN branch_class_sections bcs ON tsa.section_id = bcs.id
        JOIN subjects sub ON tsa.subject_id = sub.id
-       WHERE tsa.teacher_id = ? AND tsa.status = 'active'`,
-      [staffId]
+       WHERE tsa.teacher_id = ? AND tsa.status = 'active'
+         ${activeAyId ? 'AND tsa.academic_year_id = ?' : ''}`,
+      [staffId, ...(activeAyId ? [activeAyId] : [])]
     );
 
     // 4. Leave balances summary

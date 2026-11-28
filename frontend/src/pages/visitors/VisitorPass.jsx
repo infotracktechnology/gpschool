@@ -21,9 +21,11 @@ import {
   LogOut
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const VisitorPass = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const { id: routePassId } = useParams();
   const [searchParams] = useSearchParams();
   const queryPassId = routePassId || searchParams.get('id');
@@ -38,7 +40,7 @@ export const VisitorPass = () => {
 
   useEffect(() => {
     fetchPasses();
-  }, [statusFilter]);
+  }, [statusFilter, selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchPasses = async () => {
     try {

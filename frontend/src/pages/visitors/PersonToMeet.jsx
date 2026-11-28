@@ -15,9 +15,11 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const PersonToMeet = () => {
   const navigate = useNavigate();
+  const { selectedBranch } = useAuth();
 
   const [hosts, setHosts] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -27,7 +29,7 @@ export const PersonToMeet = () => {
 
   useEffect(() => {
     fetchHosts();
-  }, [selectedDept]);
+  }, [selectedDept, selectedBranch?.id]);
 
   const fetchHosts = async () => {
     try {

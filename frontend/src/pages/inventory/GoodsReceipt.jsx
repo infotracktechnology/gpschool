@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PackageCheck, Plus, Search, Eye } from 'lucide-react';
 import { inventoryService } from '../../services/inventoryService';
+import { useAuth } from '../../context/AuthContext';
 import { PageHeader, StatusBadge, EmptyState, btnPrimary, cardCls, inputCls, fmtDate } from './_shared';
 
 export const GoodsReceipt = () => {
   const navigate = useNavigate();
+  const { selectedBranch } = useAuth();
+  const branchId = selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : '';
   const [grns, setGrns] = useState([]);
   const [pos, setPos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,15 +18,16 @@ export const GoodsReceipt = () => {
   const load = async () => {
     try {
       setLoading(true);
+      const bq = branchId ? { branch_id: branchId } : {};
       const [grnRes, poRes] = await Promise.all([
-        inventoryService.getGRNs({ status, search }),
-        inventoryService.getPOs({ status: 'sent' }),
+        inventoryService.getGRNs({ status, search, ...bq }),
+        inventoryService.getPOs({ status: 'sent', ...bq }),
       ]);
       if (grnRes.success) setGrns(grnRes.goods_receipts || []);
       if (poRes.success) setPos(poRes.purchase_orders || []);
     } finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, [status, search]);
+  useEffect(() => { load(); }, [status, search, branchId]);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">

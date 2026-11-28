@@ -16,9 +16,11 @@ import {
   Building2,
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const VisitorDashboard = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const [data, setData] = useState({
     kpis: {
       total_today: 0,
@@ -36,7 +38,7 @@ export const VisitorDashboard = () => {
 
   useEffect(() => {
     fetchDashboard();
-  }, []);
+  }, [selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchDashboard = async () => {
     try {

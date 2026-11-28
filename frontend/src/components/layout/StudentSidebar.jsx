@@ -14,6 +14,8 @@ import {
   ShieldCheck,
   LifeBuoy,
   HeartPulse,
+  Bus,
+  Building2,
 } from 'lucide-react';
 
 import { useStudent } from '../../context/StudentContext';
@@ -35,6 +37,8 @@ export default function StudentSidebar({ mobileOpen, onClose }) {
     { to: '/student/assignments', label: 'Assignment', icon: FileCheck2, badge: assignments?.length },
     { to: '/student/attendance', label: 'Attendance', icon: CalendarCheck },
     { to: '/student/health', label: 'Health & Medical', icon: HeartPulse },
+    { to: '/student/transport', label: 'Transport', icon: Bus },
+    { to: '/student/hostel', label: 'Hostel', icon: Building2 },
     { to: '/student/concerns', label: 'Helpdesk & Concerns', icon: LifeBuoy },
     { to: '/student/gallery', label: 'Gallery', icon: ImageIcon, badge: albums?.length },
     { to: '/student/calendar', label: 'Calendar', icon: CalendarDays, badge: events?.length },

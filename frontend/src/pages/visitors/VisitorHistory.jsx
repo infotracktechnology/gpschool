@@ -21,9 +21,11 @@ import {
   Eye
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const VisitorHistory = () => {
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
   const [history, setHistory] = useState([]);
   const [kpis, setKpis] = useState({
     total_visits: 0,
@@ -43,7 +45,7 @@ export const VisitorHistory = () => {
 
   useEffect(() => {
     fetchHistory();
-  }, [startDate, endDate, statusFilter]);
+  }, [startDate, endDate, statusFilter, selectedBranch?.id, selectedAcademicYear?.id]);
 
   const fetchHistory = async () => {
     try {

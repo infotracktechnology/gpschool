@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Package, Plus, Search, AlertTriangle, Edit, Trash2, Pill } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
 
 export const MedicineInventory = () => {
   const navigate = useNavigate();
+  const { selectedBranch } = useAuth();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,7 +14,7 @@ export const MedicineInventory = () => {
 
   useEffect(() => {
     fetchInventory();
-  }, [statusFilter]);
+  }, [statusFilter, selectedBranch?.id]);
 
   const fetchInventory = async () => {
     try {

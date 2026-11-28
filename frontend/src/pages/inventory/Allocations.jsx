@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Boxes, Plus, Search, Eye, Trash2 } from 'lucide-react';
 import { inventoryService } from '../../services/inventoryService';
+import { useAuth } from '../../context/AuthContext';
 import { PageHeader, StatusBadge, EmptyState, btnPrimary, btnDanger, cardCls, inputCls, fmtDate } from './_shared';
 
 export const Allocations = () => {
   const navigate = useNavigate();
+  const { selectedBranch } = useAuth();
+  const branchId = selectedBranch?.id && selectedBranch.id !== 'all' ? selectedBranch.id : '';
   const [allocations, setAllocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
@@ -15,11 +18,11 @@ export const Allocations = () => {
   const load = async () => {
     try {
       setLoading(true);
-      const res = await inventoryService.getAllocations({ status, allocation_type: type, search });
+      const res = await inventoryService.getAllocations({ status, allocation_type: type, search, ...(branchId ? { branch_id: branchId } : {}) });
       if (res.success) setAllocations(res.allocations || []);
     } finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, [status, type, search]);
+  useEffect(() => { load(); }, [status, type, search, branchId]);
 
   const handleDelete = async (a) => {
     if (!window.confirm('Delete this allocation? Reserved stock will be released.')) return;

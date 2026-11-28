@@ -1,4 +1,5 @@
 import { pool, query } from '../config/database.js';
+import { sanitizeScopeId } from '../middleware/authMiddleware.js';
 
 /**
  * Generate sequential daily document code: PREFIX-YYYYMMDD-XXXX
@@ -305,7 +306,8 @@ export const getSupplierStockHistory = async (req, res, next) => {
 // ============ ITEMS ============
 export const getItems = async (req, res, next) => {
   try {
-    const { search, category_id, status, branch_id, low_stock } = req.query;
+    const { search, category_id, status, low_stock } = req.query;
+    const branch_id = req.scope?.branchId ?? sanitizeScopeId(req.query.branch_id);
     let sql = `
       SELECT i.*,
              c.name AS category_name,
@@ -481,7 +483,8 @@ export const getBranchStockSummary = async (req, res, next) => {
 // ============ PURCHASE ORDERS ============
 export const getPOs = async (req, res, next) => {
   try {
-    const { status, branch_id, supplier_id, search } = req.query;
+    const { status, supplier_id, search } = req.query;
+    const branch_id = req.scope?.branchId ?? sanitizeScopeId(req.query.branch_id);
     let sql = `
       SELECT po.*, s.name AS supplier_name, s.supplier_code, b.name AS branch_name,
              (SELECT COUNT(*) FROM inventory_purchase_order_items WHERE po_id = po.id) AS item_count
@@ -701,7 +704,8 @@ export const deletePO = async (req, res, next) => {
 // ============ GOODS RECEIPT ============
 export const getGRNs = async (req, res, next) => {
   try {
-    const { status, branch_id, po_id } = req.query;
+    const { status, po_id } = req.query;
+    const branch_id = req.scope?.branchId ?? sanitizeScopeId(req.query.branch_id);
     let sql = `
       SELECT gr.*, po.po_number, s.name AS supplier_name, b.name AS branch_name,
              (SELECT COUNT(*) FROM inventory_goods_receipt_items WHERE grn_id = gr.id) AS item_count
@@ -879,7 +883,8 @@ export const inspectGRN = async (req, res, next) => {
 // ============ STOCK MOVEMENTS ============
 export const getMovements = async (req, res, next) => {
   try {
-    const { item_id, branch_id, movement_type, reference_type, from_date, to_date } = req.query;
+    const { item_id, movement_type, reference_type, from_date, to_date } = req.query;
+    const branch_id = req.scope?.branchId ?? sanitizeScopeId(req.query.branch_id);
     let sql = `
       SELECT m.*, i.name AS item_name, i.item_code, b.name AS branch_name,
              u.name AS user_name, u.username
@@ -1036,7 +1041,8 @@ export const createBranchTransfer = async (req, res, next) => {
 // ============ ALLOCATIONS ============
 export const getAllocations = async (req, res, next) => {
   try {
-    const { item_id, branch_id, allocated_to_type, allocated_to_id, status } = req.query;
+    const { item_id, allocated_to_type, allocated_to_id, status } = req.query;
+    const branch_id = req.scope?.branchId ?? sanitizeScopeId(req.query.branch_id);
     let sql = `
       SELECT a.*, i.name AS item_name, i.item_code, b.name AS branch_name,
              u.name AS allocated_by_name
@@ -1164,7 +1170,8 @@ export const deleteAllocation = async (req, res, next) => {
 // ============ DAMAGED ITEMS ============
 export const getDamaged = async (req, res, next) => {
   try {
-    const { item_id, branch_id, damage_type, action_taken } = req.query;
+    const { item_id, damage_type, action_taken } = req.query;
+    const branch_id = req.scope?.branchId ?? sanitizeScopeId(req.query.branch_id);
     let sql = `
       SELECT d.*, i.name AS item_name, i.item_code, b.name AS branch_name,
              u1.name AS reported_by_name, u2.name AS inspected_by_name
@@ -1260,7 +1267,7 @@ export const inspectDamage = async (req, res, next) => {
 // ============ DASHBOARD ============
 export const getInventoryDashboard = async (req, res, next) => {
   try {
-    const branchId = req.query.branch_id || req.user?.branch_id;
+    const branchId = req.scope?.branchId ?? sanitizeScopeId(req.query.branch_id);
 
     const [kpis] = await query(
       `SELECT

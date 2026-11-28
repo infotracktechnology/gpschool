@@ -2,6 +2,42 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/database.js';
 
+const enrichUserContext = async (user) => {
+  let studentId = user.student_id || null;
+  let staffProfile = null;
+
+  if (user.role === 'student') {
+    const stuRows = await query(
+      `SELECT id FROM students WHERE LOWER(admission_no) = ? LIMIT 1`,
+      [(user.username || '').toLowerCase()]
+    );
+    if (stuRows.length > 0) {
+      studentId = stuRows[0].id;
+    }
+  } else {
+    const spRows = await query(
+      `SELECT id, emp_no, designation, department, staff_type, avatar_url AS photo_url
+       FROM staff_profiles
+       WHERE user_id = ?
+       LIMIT 1`,
+      [user.id]
+    );
+    if (spRows.length > 0) {
+      staffProfile = spRows[0];
+    }
+  }
+
+  return {
+    student_id: studentId,
+    staff_id: staffProfile?.id || null,
+    emp_no: staffProfile?.emp_no || null,
+    designation: staffProfile?.designation || null,
+    department: staffProfile?.department || null,
+    staff_type: staffProfile?.staff_type || null,
+    photo_url: staffProfile?.photo_url || null,
+  };
+};
+
 export const login = async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
@@ -11,13 +47,26 @@ export const login = async (req, res, next) => {
       return res.status(400).json({ message: 'Username/Email and password are required' });
     }
 
-    const users = await query(
+    let users = await query(
       `SELECT u.id, u.name, u.username, u.password, u.role, u.branch_id, u.status, b.name AS branch_name
        FROM users u
        LEFT JOIN branches b ON u.branch_id = b.id
        WHERE LOWER(u.username) = ?`,
       [loginIdentifier.toLowerCase()]
     );
+
+    if (users.length === 0) {
+      users = await query(
+        `SELECT u.id, u.name, u.username, u.password, u.role, u.branch_id, u.status, b.name AS branch_name
+         FROM staff_profiles sp
+         JOIN users u ON sp.user_id = u.id
+         LEFT JOIN branches b ON u.branch_id = b.id
+         WHERE LOWER(sp.emp_no) = ?
+            OR (sp.email IS NOT NULL AND sp.email != '' AND LOWER(sp.email) = ?)
+         LIMIT 1`,
+        [loginIdentifier.toLowerCase(), loginIdentifier.toLowerCase()]
+      );
+    }
 
     if (users.length === 0) {
       return res.status(401).json({ message: 'Invalid username or password' });
@@ -53,16 +102,7 @@ export const login = async (req, res, next) => {
       `SELECT id, code, name FROM academic_years WHERE is_current = TRUE LIMIT 1`
     );
 
-    let studentId = null;
-    if (user.role === 'student') {
-      const stuRows = await query(
-        `SELECT id FROM students WHERE LOWER(admission_no) = ? LIMIT 1`,
-        [user.username.toLowerCase()]
-      );
-      if (stuRows.length > 0) {
-        studentId = stuRows[0].id;
-      }
-    }
+    const extraContext = await enrichUserContext(user);
 
     const safeUser = {
       id: user.id,
@@ -72,7 +112,7 @@ export const login = async (req, res, next) => {
       role: user.role,
       branch_id: user.branch_id,
       branch_name: user.branch_name,
-      student_id: studentId,
+      ...extraContext,
       current_academic_year: activeYears[0] || null,
     };
 
@@ -92,21 +132,12 @@ export const getMe = async (req, res, next) => {
       `SELECT id, code, name FROM academic_years WHERE is_current = TRUE LIMIT 1`
     );
 
-    let studentId = req.user.student_id || null;
-    if (!studentId && req.user.role === 'student') {
-      const stuRows = await query(
-        `SELECT id FROM students WHERE LOWER(admission_no) = ? LIMIT 1`,
-        [req.user.username?.toLowerCase() || '']
-      );
-      if (stuRows.length > 0) {
-        studentId = stuRows[0].id;
-      }
-    }
+    const extraContext = await enrichUserContext(req.user);
 
     res.json({
       user: {
         ...req.user,
-        student_id: studentId,
+        ...extraContext,
         current_academic_year: activeYears[0] || null,
       },
     });

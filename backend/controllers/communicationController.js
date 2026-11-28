@@ -1514,7 +1514,7 @@ export const communicationController = {
       }
 
       const [students] = await pool.query(
-        `SELECT st.*, se.class_id, se.section_id, se.branch_id, se.roll_no,
+        `SELECT st.*, se.class_id, se.section_id, se.branch_id, se.academic_year_id, se.roll_no,
                 c.name AS class_name, c.code AS class_code,
                 s.name AS section_name, b.name AS branch_name
          FROM students st
@@ -1530,6 +1530,8 @@ export const communicationController = {
         return res.status(404).json({ success: false, message: 'Student record not found' });
       }
       const student = students[0];
+      const stuBranchId = student.branch_id || req.scope?.branchId || null;
+      const stuAyId = req.scope?.academicYearId || student.academic_year_id || null;
 
       // Assigned subjects for the student
       let assignedSubjects = [];
@@ -1552,15 +1554,19 @@ export const communicationController = {
            SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
            SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late_days
          FROM student_attendance
-         WHERE student_id = ?`,
-        [sId]
+         WHERE student_id = ?
+           ${stuBranchId ? 'AND branch_id = ?' : ''}
+           ${stuAyId ? 'AND academic_year_id = ?' : ''}`,
+        [sId, ...(stuBranchId ? [stuBranchId] : []), ...(stuAyId ? [stuAyId] : [])]
       );
 
       // Today's session status
       const [todayAtt] = await pool.query(
         `SELECT session, status FROM student_attendance
-         WHERE student_id = ? AND attendance_date = CURDATE()`,
-        [sId]
+         WHERE student_id = ? AND attendance_date = CURDATE()
+           ${stuBranchId ? 'AND branch_id = ?' : ''}
+           ${stuAyId ? 'AND academic_year_id = ?' : ''}`,
+        [sId, ...(stuBranchId ? [stuBranchId] : []), ...(stuAyId ? [stuAyId] : [])]
       );
       let morningSession = 'Not Marked';
       let afternoonSession = 'Not Marked';
@@ -1587,7 +1593,7 @@ export const communicationController = {
 
       const sectionVal = student.section_id ? String(student.section_id) : 'all';
 
-      // Homework matching student's class and section (or all sections)
+      // Homework matching student's class and section (or all sections), scoped to student branch & year
       const [homework] = await pool.query(
         `SELECT h.*, c.name AS class_name, s.name AS section_name, COALESCE(sub.name, h.subject) AS subject_name 
          FROM homework h 
@@ -1600,11 +1606,13 @@ export const communicationController = {
          WHERE (h.class_id = ? OR h.class_id IS NULL)
            AND (h.section_id IS NULL OR h.section_id = 'all' OR h.section_id = '' OR h.section_id = 'null' OR h.section_id = ? OR CAST(h.section_id AS CHAR) = ?)
            AND (h.status = 'Published' OR h.status IS NULL OR h.status = '')
+           ${stuBranchId ? 'AND (h.branch_id = ? OR h.branch_id IS NULL)' : ''}
+           ${stuAyId ? 'AND (h.academic_year_id = ? OR h.academic_year_id IS NULL)' : ''}
          ORDER BY h.id DESC LIMIT 50`,
-        [student.class_id || 0, sectionVal, sectionVal]
+        [student.class_id || 0, sectionVal, sectionVal, ...(stuBranchId ? [stuBranchId] : []), ...(stuAyId ? [stuAyId] : [])]
       );
 
-      // Assignments with this student's submission status and grades
+      // Assignments with this student's submission status and grades, scoped to student branch & year
       const [assignments] = await pool.query(
         `SELECT a.*, c.name AS class_name, s.name AS section_name, COALESCE(sub.name, a.subject) AS subject_name,
                 asub.id AS my_submission_id,
@@ -1625,8 +1633,10 @@ export const communicationController = {
          WHERE (a.class_id = ? OR a.class_id IS NULL)
            AND (a.section_id IS NULL OR a.section_id = 'all' OR a.section_id = '' OR a.section_id = 'null' OR a.section_id = ? OR CAST(a.section_id AS CHAR) = ?)
            AND (a.status = 'Published' OR a.status IS NULL OR a.status = '')
+           ${stuBranchId ? 'AND (a.branch_id = ? OR a.branch_id IS NULL)' : ''}
+           ${stuAyId ? 'AND (a.academic_year_id = ? OR a.academic_year_id IS NULL)' : ''}
          ORDER BY a.id DESC LIMIT 50`,
-        [sId, student.class_id || 0, sectionVal, sectionVal]
+        [sId, student.class_id || 0, sectionVal, sectionVal, ...(stuBranchId ? [stuBranchId] : []), ...(stuAyId ? [stuAyId] : [])]
       );
 
       // Announcements targeted to All or this class
@@ -1634,8 +1644,10 @@ export const communicationController = {
         `SELECT * FROM announcements 
          WHERE (target_audience = 'All' OR target_class_id = ? OR target_class_id IS NULL)
            AND (status = 'Published' OR status IS NULL OR status = '')
+           ${stuBranchId ? 'AND (branch_id = ? OR branch_id IS NULL)' : ''}
+           ${stuAyId ? 'AND (academic_year_id = ? OR academic_year_id IS NULL)' : ''}
          ORDER BY id DESC LIMIT 50`,
-        [student.class_id || 0]
+        [student.class_id || 0, ...(stuBranchId ? [stuBranchId] : []), ...(stuAyId ? [stuAyId] : [])]
       );
 
       // Academic Calendar events
@@ -1646,7 +1658,10 @@ export const communicationController = {
                 is_holiday, school_closed, color_code, is_published
          FROM academic_calendar_events
          WHERE (is_published = 1 OR is_published IS NULL)
-         ORDER BY start_date ASC LIMIT 50`
+           ${stuBranchId ? 'AND (branch_id = ? OR branch_id IS NULL)' : ''}
+           ${stuAyId ? 'AND (academic_year_id = ? OR academic_year_id IS NULL)' : ''}
+         ORDER BY start_date ASC LIMIT 50`,
+        [...(stuBranchId ? [stuBranchId] : []), ...(stuAyId ? [stuAyId] : [])]
       );
 
       // Gallery albums
@@ -1654,7 +1669,11 @@ export const communicationController = {
         `SELECT a.*, a.title AS album_name, a.cover_image AS cover_image_url,
                 (SELECT COUNT(*) FROM gallery_media gm WHERE gm.album_id = a.id) as media_count
          FROM gallery_albums a 
-         ORDER BY a.id DESC LIMIT 30`
+         WHERE 1=1
+           ${stuBranchId ? 'AND (a.branch_id = ? OR a.branch_id IS NULL)' : ''}
+           ${stuAyId ? 'AND (a.academic_year_id = ? OR a.academic_year_id IS NULL)' : ''}
+         ORDER BY a.id DESC LIMIT 30`,
+        [...(stuBranchId ? [stuBranchId] : []), ...(stuAyId ? [stuAyId] : [])]
       );
 
       res.json({

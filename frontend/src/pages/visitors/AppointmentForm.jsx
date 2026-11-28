@@ -2,11 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Calendar, ArrowLeft, Save, AlertCircle, Building2 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useAuth } from '../../context/AuthContext';
+import { BranchScopePicker } from '../../components/common/BranchScopePicker';
 
 export const AppointmentForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const { selectedBranch, selectedAcademicYear } = useAuth();
+  const [branchId, setBranchId] = useState(() =>
+    selectedBranch?.id && selectedBranch.id !== 'all' ? String(selectedBranch.id) : ''
+  );
+
+  useEffect(() => {
+    if (selectedBranch?.id && selectedBranch.id !== 'all') {
+      setBranchId(String(selectedBranch.id));
+    }
+  }, [selectedBranch?.id]);
 
   const [hosts, setHosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -89,10 +101,15 @@ export const AppointmentForm = () => {
 
     try {
       setSubmitting(true);
+      const payload = {
+        ...form,
+        ...(branchId ? { branch_id: Number(branchId) } : {}),
+        ...(selectedAcademicYear?.id ? { academic_year_id: Number(selectedAcademicYear.id) } : {}),
+      };
       if (isEdit) {
-        await api.put(`/visitors/appointments/${id}`, form);
+        await api.put(`/visitors/appointments/${id}`, payload);
       } else {
-        await api.post('/visitors/appointments', form);
+        await api.post('/visitors/appointments', payload);
       }
       navigate('/visitors/appointments');
     } catch (err) {
@@ -138,6 +155,7 @@ export const AppointmentForm = () => {
       )}
 
       <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-5">
+        <BranchScopePicker branchId={branchId} onBranchChange={setBranchId} />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">

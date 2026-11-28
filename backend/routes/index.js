@@ -19,9 +19,12 @@ import portalRoutes from './portalRoutes.js';
 import { communicationRouter } from './communicationRoutes.js';
 import concernRoutes from './concernRoutes.js';
 import visitorRoutes from './visitorRoutes.js';
+import hostelRoutes from './hostelRoutes.js';
 import healthRoutes from './healthRoutes.js';
 import certificateRoutes from './certificateRoutes.js';
+import dashboardRoutes from './dashboardRoutes.js';
 import inventoryRoutes from './inventoryRoutes.js';
+import transportRoutes from './transportRoutes.js';
 
 const router = Router();
 
@@ -63,6 +66,7 @@ router.use('/concerns', concernRoutes);
 
 // Visitor Management Module
 router.use('/visitors', visitorRoutes);
+router.use('/hostel', hostelRoutes);
 
 // Infirmary & Health Management Module
 router.use('/health', healthRoutes);
@@ -72,5 +76,9 @@ router.use('/certificates', certificateRoutes);
 
 // Inventory Management Module
 router.use('/inventory', inventoryRoutes);
+router.use('/transport', transportRoutes);
+
+// Executive Overview Dashboard
+router.use('/dashboard', dashboardRoutes);
 
 export default router;

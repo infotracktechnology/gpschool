@@ -421,7 +421,7 @@ export const StaffDirectory = () => {
 
   // Sync selected branch if changed in navbar
   useEffect(() => {
-    if (selectedBranch && selectedBranch.id !== 'all') {
+    if (selectedBranch?.id) {
       setSelectedBranchId(String(selectedBranch.id));
     }
   }, [selectedBranch]);

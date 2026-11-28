@@ -311,15 +311,10 @@
         reader.onload = async () => {
           try {
             const base64Data = reader.result;
-            const res = await fetch('/api/communication/upload-attachment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                filename: file.name,
-                base64Data
-              })
+            const data = await api.post('/communication/upload-attachment', {
+              filename: file.name,
+              base64Data
             });
-            const data = await res.json();
             if (data.success && data.url) {
               const isImg = file.type.startsWith('image/');
               const newAtt = {

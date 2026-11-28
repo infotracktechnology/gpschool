@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   User,
+  Calendar,
   CalendarCheck,
   CalendarDays,
   GraduationCap,
@@ -26,10 +27,29 @@ import {
 import { useAuth } from '../../context/AuthContext';
 
 export const PortalLayout = () => {
-  const { user, logout, selectedBranch, selectedAcademicYear } = useAuth();
+  const { user, loading, logout, selectedBranch, selectedAcademicYear } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+          <p className="text-sm font-medium text-slate-600">Loading Staff Portal...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role === 'student') {
+    return <Navigate to="/student/dashboard" replace />;
+  }
 
   // Check if current user is an approver (principal, coordinator, admin, or hod)
   const isApprover =
@@ -163,16 +183,16 @@ export const PortalLayout = () => {
             </div>
             <div className="overflow-hidden">
               <h2 className="text-sm font-bold text-white truncate">
-                {user?.name || 'Dr. Ramesh Sundaram'}
+                {user?.name || 'Staff Member'}
               </h2>
               <span className="font-mono text-[11px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/60 inline-block mt-0.5">
-                {user?.emp_no || 'GPS-T-001'}
+                {user?.emp_no || user?.username || 'STAFF'}
               </span>
             </div>
           </div>
 
           <div className="text-[11px] text-slate-400 pt-1 border-t border-slate-700/60 flex items-center justify-between">
-            <span className="truncate">{user?.department || 'Mathematics Dept'}</span>
+            <span className="truncate">{user?.department || 'Faculty & Staff'}</span>
             <span className="capitalize text-emerald-400 font-semibold">{user?.role || 'Teacher'}</span>
           </div>
         </div>
@@ -275,10 +295,10 @@ export const PortalLayout = () => {
               </div>
               <div className="hidden md:block text-left">
                 <p className="text-xs font-bold text-heading leading-tight truncate max-w-[130px]">
-                  {user?.name || 'Dr. Ramesh Sundaram'}
+                  {user?.name || 'Staff Member'}
                 </p>
                 <p className="text-[10px] text-muted capitalize truncate font-medium">
-                  {user?.emp_no || 'GPS-T-001'}
+                  {user?.emp_no || user?.username || 'STAFF'}
                 </p>
               </div>
             </div>
